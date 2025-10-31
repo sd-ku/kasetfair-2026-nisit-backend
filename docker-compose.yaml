@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+      POSTGRES_USER: ${POSTGRES_USER:-appuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apppass}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # ตัวอย่าง DATABASE_URL แบบ TypeORM/Prisma ใช้ได้เหมือนกัน
+      DATABASE_URL: ${DATABASE_URL:-postgresql://appuser:apppass@db:5432/appdb}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
+    ports:
+      - "${PORT:-3000}:3000"
+      # เปิด debug ถ้าต้องการ: - "9229:9229"
+    depends_on:
+      db:
+        condition: service_healthy
+    # ถ้าเป็น dev แล้วอยาก hot-reload ให้ bind mount โค้ดเข้าไป:
+    # volumes:
+    #   - ./:/app
+    # command: npm run start:dev
+
+volumes:
+  pg_data:
