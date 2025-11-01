@@ -1,15 +1,122 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-}
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+//
+// ---------- Enums ----------
+//
+
+enum store_type {
+  student
+  club
+}
+
+enum goods_type {
+  food
+  non_food
+}
+
+enum store_status {
+  draft            // เพิ่งเริ่ม ยังไม่กรอกอะไร
+  store_details    // กรอกข้อมูลร้าน (ชื่อ ประเภท รายละเอียด)
+  product_details  // กรอกข้อมูลสินค้าหรือบริการ
+  submitted        // กรอกครบแล้ว ส่งข้อมูลเรียบร้อย
+}
+
+//
+// ---------- Core Models ----------
+//
+
+model student {
+  student_id       String   @id
+  first_name       String
+  last_name        String
+  phone            String
+  email            String
+  nisit_card_link  String?
+
+  leaded_clubs     club_info[]     @relation("club_leader")
+  store_leaders    store_leader[]
+  store_members    store_member[]
+
+  @@unique([email])
+  @@unique([phone])
+  @@map("student")
+}
+
+model club_info {
+  id                 Int       @id @default(autoincrement())
+  club_name          String
+  leader_student_id  String?
+  application_link   String?
+
+  leader             student?  @relation("club_leader", fields: [leader_student_id], references: [student_id])
+  stores             store[]
+
+  @@map("club_info")
+}
+
+model store {
+  id             Int             @id @default(autoincrement())
+  store_name     String
+  booth_number   String?         @unique
+  type           store_type
+  club_info_id   Int?
+  status         store_status
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
+
+  club_info      club_info?      @relation(fields: [club_info_id], references: [id])
+  leaders        store_leader[]
+  members        store_member[]
+  goods          goods[]
+
+  @@index([type])
+  @@index([status])
+  @@map("store")
+}
+
+model store_leader {
+  store_id     Int
+  student_id   String
+  role         String
+
+  store        store   @relation(fields: [store_id], references: [id])
+  student      student @relation(fields: [student_id], references: [student_id])
+
+  @@id([store_id, student_id])
+  @@map("store_leader")
+}
+
+model store_member {
+  store_id     Int
+  student_id   String
+  position     String?
+
+  store        store   @relation(fields: [store_id], references: [id])
+  student      student @relation(fields: [student_id], references: [student_id])
+
+  @@id([store_id, student_id])
+  @@map("store_member")
+}
+
+model goods {
+  id           Int        @id @default(autoincrement())
+  name         String
+  type         goods_type
+  price        Decimal    @db.Decimal(10, 2)
+  store_id     Int
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @updatedAt
+
+  store        store      @relation(fields: [store_id], references: [id])
+
+  @@index([store_id])
+  @@map("goods")
 }

@@ -1,0 +1,14 @@
+# อย่าคัดลอกของพวกนี้เข้า build context
+node_modules
+**/node_modules
+.pnpm-store
+.pnpm-debug.log
+dist
+.coverage
+.tmp
+.git
+.gitignore
+Dockerfile*
+docker-compose*.yml
+*.log
+.env
