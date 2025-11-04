@@ -1,122 +1,119 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [citext]
 }
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
-//
-// ---------- Enums ----------
-//
-
-enum store_type {
-  student
-  club
+enum StoreType {
+  Nisit
+  Club
 }
 
-enum goods_type {
-  food
-  non_food
+enum GoodsType {
+  Food
+  NonFood
 }
 
-enum store_status {
-  draft            // เพิ่งเริ่ม ยังไม่กรอกอะไร
-  store_details    // กรอกข้อมูลร้าน (ชื่อ ประเภท รายละเอียด)
-  product_details  // กรอกข้อมูลสินค้าหรือบริการ
-  submitted        // กรอกครบแล้ว ส่งข้อมูลเรียบร้อย
+enum StoreStatus {
+  Draft
+  StoreDetails
+  ProductDetails
+  Submitted
 }
 
-//
-// ---------- Core Models ----------
-//
-
-model student {
-  student_id       String   @id
-  first_name       String
-  last_name        String
-  phone            String
-  email            String
-  nisit_card_link  String?
-
-  leaded_clubs     club_info[]     @relation("club_leader")
-  store_leaders    store_leader[]
-  store_members    store_member[]
-
-  @@unique([email])
-  @@unique([phone])
-  @@map("student")
+/** (ถ้าต้องการ tag บทบาทในร้านแบบง่าย ๆ ให้ใช้ enum นี้; ถ้าไม่ใช้ก็ลบได้) */
+enum StoreRole {
+  Leader
+  Staff
 }
 
-model club_info {
-  id                 Int       @id @default(autoincrement())
-  club_name          String
-  leader_student_id  String?
-  application_link   String?
+model UserIdentity {
+  providerSub    String
+  provider       String
+  providerEmail  String   @db.Citext
+  emailVerified  Boolean  @default(false)
 
-  leader             student?  @relation("club_leader", fields: [leader_student_id], references: [student_id])
-  stores             store[]
+  // ---- Relation to Nisit (many-to-one)
+  nisitId        String?
+  info           Nisit?   @relation("NisitUserIdentities", fields: [nisitId], references: [nisitId], onDelete: SetNull)
+
+  @@unique([provider, providerSub])
+  @@index([providerEmail])
+  @@map("user_identity")
+}
+
+model Nisit {
+  nisitId        String   @id
+  firstName      String
+  lastName       String
+  phone          String   @unique
+  email          String   @db.Citext @unique
+  nisitCardLink  String?
+
+  /* ---- One Nisit -> One Store (ผ่าน FK เดียว) */
+  storeId        Int?
+  store          Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  storeRole      StoreRole?
+
+  // ---- อื่น ๆ ที่มีอยู่เดิม
+  userIdentities UserIdentity[] @relation("NisitUserIdentities")
+  leadedClubs    ClubInfo[]     @relation("club_leader")
+
+  @@index([storeId])
+  @@map("nisit")
+}
+
+model ClubInfo {
+  id               Int       @id @default(autoincrement())
+  clubName         String
+  leaderNisitId    String?
+  applicationLink  String?
+
+  leader           Nisit?    @relation("club_leader", fields: [leaderNisitId], references: [nisitId], onDelete: SetNull)
+  stores           Store[]
 
   @@map("club_info")
 }
 
-model store {
-  id             Int             @id @default(autoincrement())
-  store_name     String
-  booth_number   String?         @unique
-  type           store_type
-  club_info_id   Int?
-  status         store_status
-  created_at     DateTime        @default(now())
-  updated_at     DateTime        @updatedAt
+model Store {
+  id           Int         @id @default(autoincrement())
+  storeName    String
+  boothNumber  String?     @unique
+  type         StoreType
+  clubInfoId   Int?
+  status       StoreStatus
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
-  club_info      club_info?      @relation(fields: [club_info_id], references: [id])
-  leaders        store_leader[]
-  members        store_member[]
-  goods          goods[]
+  clubInfo     ClubInfo?   @relation(fields: [clubInfoId], references: [id], onDelete: SetNull)
+
+  /* ---- One Store -> Many Nisit (ฝั่งกลับจาก FK) */
+  members      Nisit[]
+
+  goods        Goods[]
 
   @@index([type])
   @@index([status])
   @@map("store")
 }
 
-model store_leader {
-  store_id     Int
-  student_id   String
-  role         String
+model Goods {
+  id         Int       @id @default(autoincrement())
+  name       String
+  type       GoodsType
+  price      Decimal   @db.Decimal(10, 2)
+  storeId    Int
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  store        store   @relation(fields: [store_id], references: [id])
-  student      student @relation(fields: [student_id], references: [student_id])
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
-  @@id([store_id, student_id])
-  @@map("store_leader")
-}
-
-model store_member {
-  store_id     Int
-  student_id   String
-  position     String?
-
-  store        store   @relation(fields: [store_id], references: [id])
-  student      student @relation(fields: [student_id], references: [student_id])
-
-  @@id([store_id, student_id])
-  @@map("store_member")
-}
-
-model goods {
-  id           Int        @id @default(autoincrement())
-  name         String
-  type         goods_type
-  price        Decimal    @db.Decimal(10, 2)
-  store_id     Int
-  created_at   DateTime   @default(now())
-  updated_at   DateTime   @updatedAt
-
-  store        store      @relation(fields: [store_id], references: [id])
-
-  @@index([store_id])
+  @@index([storeId])
   @@map("goods")
 }
