@@ -19,3 +19,4 @@ export class ExchangeResponeDto {
       profileComplete: boolean
   }
 }
+

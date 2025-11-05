@@ -6,9 +6,10 @@ import { AuthModule } from './auth/auth.module';
 import { NisitModule } from './nisit/nisit.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { StoreModule } from './store/store.module';
+import { MediaModule } from './media/media.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), AuthModule, NisitModule, PrismaModule, StoreModule],
+  imports: [ConfigModule.forRoot(), AuthModule, NisitModule, PrismaModule, StoreModule, MediaModule],
   controllers: [AppController],
   providers: [AppService],
 })

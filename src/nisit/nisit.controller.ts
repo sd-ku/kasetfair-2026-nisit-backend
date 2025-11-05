@@ -61,6 +61,7 @@ export class NisitController {
 
     const accessToken = this.authService.mintServerToken({
       sub: req.user.userId,
+      nisitId: nisitRes.nisitId,
       gmail: req.user.email,
       profileComplete: true,
     });
@@ -80,7 +81,7 @@ export class NisitController {
   @ApiOkResponse({ type: NisitResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   getInfo(@Req() req: AuthenticatedRequest) {
-    console.log(`from get info: `)
+    console.log(`req.user from get info: `)
     console.log(req.user)
     const userId = req.user?.userId
     if (!userId) {
@@ -104,12 +105,12 @@ export class NisitController {
     return this.nisitService.updateInfo(nisitId, dto);
   }
 
-  private extractNisitId(req: AuthenticatedRequest): string {
-    const userId = req.user?.userId;
-    if (!userId) {
+  private extractNisitId(req: any): string {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
       throw new UnauthorizedException('Missing user context');
     }
-    return userId;
+    return nisitId;
   }
 
   // @UseGuards(JwtAuthGuard)

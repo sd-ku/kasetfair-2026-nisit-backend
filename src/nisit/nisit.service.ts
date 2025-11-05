@@ -51,9 +51,9 @@ export class NisitService {
     nisitId: string,
     updateDto: UpdateNisitDto,
   ): Promise<NisitResponseDto> {
-    if (updateDto.nisitId && updateDto.nisitId !== nisitId) {
-      throw new BadRequestException('Cannot change nisitId');
-    }
+    // if (updateDto.nisitId && updateDto.nisitId !== nisitId) {
+    //   throw new BadRequestException('Cannot change nisitId');
+    // }
 
     const data = this.buildUpdateData(updateDto);
     if (Object.keys(data).length === 0) {
@@ -118,10 +118,6 @@ export class NisitService {
     }
     if (dto.phone !== undefined) {
       data.phone = dto.phone.trim();
-    }
-    if (dto.nisitCardLink !== undefined) {
-      const trimmed = dto.nisitCardLink.trim();
-      data.nisitCardLink = trimmed.length > 0 ? trimmed : null;
     }
 
     return data;

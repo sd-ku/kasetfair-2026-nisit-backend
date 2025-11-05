@@ -20,28 +20,43 @@ enum GoodsType {
   NonFood
 }
 
-enum StoreStatus {
-  Draft
+enum StoreState {
+  // ขั้นตอนการสร้างร้าน
+  CreateStore
   StoreDetails
   ProductDetails
   Submitted
+
+  // หลังจากส่งแล้ว เข้าสู่สถานะหลัก
+  Pending // รอจับฉลาก
+  Success // ได้รับเลือก
+  Rejected // ไม่ได้รับเลือก (ถ้ามี)
 }
 
-/** (ถ้าต้องการ tag บทบาทในร้านแบบง่าย ๆ ให้ใช้ enum นี้; ถ้าไม่ใช้ก็ลบได้) */
+/**
+ * (ถ้าต้องการ tag บทบาทในร้านแบบง่าย ๆ ให้ใช้ enum นี้; ถ้าไม่ใช้ก็ลบได้)
+ */
 enum StoreRole {
   Leader
   Staff
 }
 
+enum StoreMemberStatus {
+  NotFound
+  Invited
+  Joined
+  Declined
+}
+
 model UserIdentity {
-  providerSub    String
-  provider       String
-  providerEmail  String   @db.Citext
-  emailVerified  Boolean  @default(false)
+  providerSub   String
+  provider      String
+  providerEmail String  @db.Citext
+  emailVerified Boolean @default(false)
 
   // ---- Relation to Nisit (many-to-one)
-  nisitId        String?
-  info           Nisit?   @relation("NisitUserIdentities", fields: [nisitId], references: [nisitId], onDelete: SetNull)
+  nisitId String?
+  info    Nisit?  @relation("NisitUserIdentities", fields: [nisitId], references: [nisitId], onDelete: SetNull)
 
   @@unique([provider, providerSub])
   @@index([providerEmail])
@@ -49,70 +64,96 @@ model UserIdentity {
 }
 
 model Nisit {
-  nisitId        String   @id
-  firstName      String
-  lastName       String
-  phone          String   @unique
-  email          String   @db.Citext @unique
-  nisitCardLink  String?
+  nisitId       String  @id
+  firstName     String
+  lastName      String
+  phone         String  @unique
+  email         String  @unique @db.Citext
+  nisitCardLink String?
 
-  /* ---- One Nisit -> One Store (ผ่าน FK เดียว) */
-  storeId        Int?
-  store          Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
-  storeRole      StoreRole?
+  /**
+   * ---- One Nisit -> One Store (ผ่าน FK เดียว)
+   */
+  storeId Int?
+  store   Store? @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  // storeRole      StoreRole?
 
   // ---- อื่น ๆ ที่มีอยู่เดิม
-  userIdentities UserIdentity[] @relation("NisitUserIdentities")
-  leadedClubs    ClubInfo[]     @relation("club_leader")
+  userIdentities      UserIdentity[]            @relation("NisitUserIdentities")
+  leadedClubs         ClubInfo[]                @relation("club_leader")
+  storeMemberAttempts StoreMemberAttemptEmail[]
 
   @@index([storeId])
   @@map("nisit")
 }
 
 model ClubInfo {
-  id               Int       @id @default(autoincrement())
-  clubName         String
-  leaderNisitId    String?
-  applicationLink  String?
+  id              Int     @id @default(autoincrement())
+  clubName        String
+  leaderNisitId   String?
+  applicationLink String?
 
-  leader           Nisit?    @relation("club_leader", fields: [leaderNisitId], references: [nisitId], onDelete: SetNull)
-  stores           Store[]
+  leader Nisit? @relation("club_leader", fields: [leaderNisitId], references: [nisitId], onDelete: SetNull)
+  store  Store?
 
   @@map("club_info")
 }
 
 model Store {
-  id           Int         @id @default(autoincrement())
-  storeName    String
-  boothNumber  String?     @unique
-  type         StoreType
-  clubInfoId   Int?
-  status       StoreStatus
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id          Int        @id @default(autoincrement())
+  storeName   String
+  boothNumber String?    @unique
+  type        StoreType
+  clubInfoId  Int?       @unique
+  clubInfo    ClubInfo?  @relation(fields: [clubInfoId], references: [id], onDelete: SetNull)
+  state       StoreState @default(CreateStore)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  clubInfo     ClubInfo?   @relation(fields: [clubInfoId], references: [id], onDelete: SetNull)
+  /**
+   * ---- One Store -> Many Nisit (ฝั่งกลับจาก FK)
+   */
+  members Nisit[]
+  goods   Goods[]
 
-  /* ---- One Store -> Many Nisit (ฝั่งกลับจาก FK) */
-  members      Nisit[]
-
-  goods        Goods[]
+  memberAttemptEmails StoreMemberAttemptEmail[] @relation("Store_AttemptEmails")
 
   @@index([type])
-  @@index([status])
+  @@index([state])
   @@map("store")
 }
 
-model Goods {
-  id         Int       @id @default(autoincrement())
-  name       String
-  type       GoodsType
-  price      Decimal   @db.Decimal(10, 2)
-  storeId    Int
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+model StoreMemberAttemptEmail {
+  id      Int   @id @default(autoincrement())
+  storeId Int
+  store   Store @relation("Store_AttemptEmails", fields: [storeId], references: [id], onDelete: Cascade)
 
-  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  email   String  @db.Citext
+  nisitId String?
+  nisit   Nisit?  @relation(fields: [nisitId], references: [nisitId], onDelete: SetNull)
+
+  status StoreMemberStatus @default(Invited) // Invited, Joined, Declined ฯลฯ
+
+  invitedAt DateTime  @default(now())
+  joinedAt  DateTime?
+
+  @@unique([storeId, email]) // กันซ้ำภายในร้านเดียวกัน
+  @@index([email]) // ใช้ค้นหาเวลาคนสมัครเข้ามา
+  // @@index([storeId])
+  // @@index([nisitId])
+  @@map("store_member_attempt_email")
+}
+
+model Goods {
+  id        Int       @id @default(autoincrement())
+  name      String
+  type      GoodsType
+  price     Decimal   @db.Decimal(10, 2)
+  storeId   Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@index([storeId])
   @@map("goods")

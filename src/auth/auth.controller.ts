@@ -56,7 +56,6 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<ExchangeResponeDto> {
     const result = await this.authService.exchange({ authHeader, body, res });
-
     return result;
   }
 }

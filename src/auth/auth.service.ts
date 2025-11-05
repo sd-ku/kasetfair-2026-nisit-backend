@@ -100,10 +100,17 @@ export class AuthService {
     return missing;
   }
 
-  public mintServerToken(user: { sub: string; gmail: string, profileComplete: boolean }) {
+  public mintServerToken(user: { sub: string; nisitId?: string | null, gmail: string, profileComplete: boolean }) {
     return this.jwt.sign(
-      { sub: String(user.sub), email: user.gmail, profileComplete: user.profileComplete, typ: 'access' },
-      { expiresIn: '1h' },
+      {
+        sub: String(user.sub),
+        nisitId: user.nisitId,
+        email: user.gmail,
+        profileComplete:
+        user.profileComplete,
+        typ: 'access'
+      },
+      { expiresIn: '1d' },
     );
   }
 
@@ -116,18 +123,21 @@ export class AuthService {
     const providerSub = payload.sub;
     if (!providerSub) throw new UnauthorizedException('Missing providerSub');
 
+    
     let gmailIdentity = await this.findUserIdentityBySub(providerSub);
+    const nisitId = gmailIdentity?.nisitId;
     
     if (!gmailIdentity) {
       gmailIdentity = await this.upsertUserIdentityBySub({...payload, });
     }
-
+    
     if (!gmailIdentity.providerSub || !gmailIdentity.providerEmail) {
       throw new InternalServerErrorException('User identity incomplete after upsert');
-    }
-    
+    } 
+
     const accessToken = this.mintServerToken({
       sub: gmailIdentity.providerSub!,
+      nisitId: nisitId,
       gmail: gmailIdentity.providerEmail!,
       profileComplete: Boolean(gmailIdentity.nisitId),
     });
