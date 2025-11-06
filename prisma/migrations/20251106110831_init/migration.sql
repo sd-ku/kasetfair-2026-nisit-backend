@@ -8,7 +8,13 @@ CREATE TYPE "StoreType" AS ENUM ('Nisit', 'Club');
 CREATE TYPE "GoodsType" AS ENUM ('Food', 'NonFood');
 
 -- CreateEnum
-CREATE TYPE "StoreStatus" AS ENUM ('Draft', 'StoreDetails', 'ProductDetails', 'Submitted');
+CREATE TYPE "StoreState" AS ENUM ('CreateStore', 'ClubInfo', 'StoreDetails', 'ProductDetails', 'Submitted', 'Pending', 'Success', 'Rejected');
+
+-- CreateEnum
+CREATE TYPE "StoreRole" AS ENUM ('Leader', 'Staff');
+
+-- CreateEnum
+CREATE TYPE "StoreMemberStatus" AS ENUM ('NotFound', 'Invited', 'Joined', 'Declined');
 
 -- CreateTable
 CREATE TABLE "user_identity" (
@@ -25,8 +31,9 @@ CREATE TABLE "nisit" (
     "firstName" TEXT NOT NULL,
     "lastName" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
+    "email" CITEXT NOT NULL,
     "nisitCardLink" TEXT,
+    "storeId" INTEGER,
 
     CONSTRAINT "nisit_pkey" PRIMARY KEY ("nisitId")
 );
@@ -48,7 +55,7 @@ CREATE TABLE "store" (
     "boothNumber" TEXT,
     "type" "StoreType" NOT NULL,
     "clubInfoId" INTEGER,
-    "status" "StoreStatus" NOT NULL,
+    "state" "StoreState" NOT NULL DEFAULT 'CreateStore',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -56,21 +63,16 @@ CREATE TABLE "store" (
 );
 
 -- CreateTable
-CREATE TABLE "store_leader" (
+CREATE TABLE "store_member_attempt_email" (
+    "id" SERIAL NOT NULL,
     "storeId" INTEGER NOT NULL,
-    "nisitId" TEXT NOT NULL,
-    "role" TEXT NOT NULL,
+    "email" CITEXT NOT NULL,
+    "nisitId" TEXT,
+    "status" "StoreMemberStatus" NOT NULL DEFAULT 'Invited',
+    "invitedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "joinedAt" TIMESTAMP(3),
 
-    CONSTRAINT "store_leader_pkey" PRIMARY KEY ("storeId","nisitId")
-);
-
--- CreateTable
-CREATE TABLE "store_member" (
-    "storeId" INTEGER NOT NULL,
-    "nisitId" TEXT NOT NULL,
-    "position" TEXT,
-
-    CONSTRAINT "store_member_pkey" PRIMARY KEY ("storeId","nisitId")
+    CONSTRAINT "store_member_attempt_email_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -93,19 +95,31 @@ CREATE INDEX "user_identity_providerEmail_idx" ON "user_identity"("providerEmail
 CREATE UNIQUE INDEX "user_identity_provider_providerSub_key" ON "user_identity"("provider", "providerSub");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "nisit_phone_key" ON "nisit"("phone");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "nisit_email_key" ON "nisit"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "nisit_phone_key" ON "nisit"("phone");
+CREATE INDEX "nisit_storeId_idx" ON "nisit"("storeId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "store_boothNumber_key" ON "store"("boothNumber");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "store_clubInfoId_key" ON "store"("clubInfoId");
+
+-- CreateIndex
 CREATE INDEX "store_type_idx" ON "store"("type");
 
 -- CreateIndex
-CREATE INDEX "store_status_idx" ON "store"("status");
+CREATE INDEX "store_state_idx" ON "store"("state");
+
+-- CreateIndex
+CREATE INDEX "store_member_attempt_email_email_idx" ON "store_member_attempt_email"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "store_member_attempt_email_storeId_email_key" ON "store_member_attempt_email"("storeId", "email");
 
 -- CreateIndex
 CREATE INDEX "goods_storeId_idx" ON "goods"("storeId");
@@ -114,22 +128,19 @@ CREATE INDEX "goods_storeId_idx" ON "goods"("storeId");
 ALTER TABLE "user_identity" ADD CONSTRAINT "user_identity_nisitId_fkey" FOREIGN KEY ("nisitId") REFERENCES "nisit"("nisitId") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "nisit" ADD CONSTRAINT "nisit_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "club_info" ADD CONSTRAINT "club_info_leaderNisitId_fkey" FOREIGN KEY ("leaderNisitId") REFERENCES "nisit"("nisitId") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "store" ADD CONSTRAINT "store_clubInfoId_fkey" FOREIGN KEY ("clubInfoId") REFERENCES "club_info"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "store_leader" ADD CONSTRAINT "store_leader_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "store_member_attempt_email" ADD CONSTRAINT "store_member_attempt_email_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "store_leader" ADD CONSTRAINT "store_leader_nisitId_fkey" FOREIGN KEY ("nisitId") REFERENCES "nisit"("nisitId") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "store_member_attempt_email" ADD CONSTRAINT "store_member_attempt_email_nisitId_fkey" FOREIGN KEY ("nisitId") REFERENCES "nisit"("nisitId") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "store_member" ADD CONSTRAINT "store_member_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "store_member" ADD CONSTRAINT "store_member_nisitId_fkey" FOREIGN KEY ("nisitId") REFERENCES "nisit"("nisitId") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "goods" ADD CONSTRAINT "goods_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "goods" ADD CONSTRAINT "goods_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "store"("id") ON DELETE CASCADE ON UPDATE CASCADE;

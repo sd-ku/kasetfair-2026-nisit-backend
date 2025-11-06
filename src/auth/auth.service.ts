@@ -141,11 +141,18 @@ export class AuthService {
       gmail: gmailIdentity.providerEmail!,
       profileComplete: Boolean(gmailIdentity.nisitId),
     });
+    
+    console.log(Boolean(gmailIdentity.nisitId))
 
     this.setAuthCookie(res, accessToken);
     res?.cookie('access_token', accessToken, {
       httpOnly: true,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',               // ให้ path ตรงกับตัวเดิม
+      maxAge: 60 * 60 * 1000,  // 1h
     });
+
 
     return {
         message: 'Exchange successful',

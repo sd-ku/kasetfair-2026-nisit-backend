@@ -21,7 +21,8 @@ export class NisitService {
 
     try {
       const nisit = await this.prisma.nisit.create({ data });
-      console.log(`create info res: ${nisit}`)
+      console.log(`create info res: `)
+      console.log(nisit)
       await this.linkPendingIdentities(nisit.email, nisit.nisitId);
       return nisit;
     } catch (error) {

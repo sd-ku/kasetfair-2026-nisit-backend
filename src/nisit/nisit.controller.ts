@@ -46,7 +46,7 @@ export class NisitController {
   @ApiCreatedResponse({ type: NisitResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid payload.' })
   @ApiConflictResponse({ description: 'Duplicate nisit_id, email, or phone.' })
-  async register(@Req() req, res: Response): Promise<NisitResponseDto> {
+  async register(@Req() req, @Res({ passthrough: true }) res: Response): Promise<NisitResponseDto> {
     const email = req.user.email;
     const payload = req.body
 
@@ -67,8 +67,12 @@ export class NisitController {
     });
 
     this.authService.setAuthCookie(res, accessToken);
-    res?.cookie('access_token', accessToken, {
+    res.cookie('access_token', accessToken, {
       httpOnly: true,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',               // ให้ path ตรงกับตัวเดิม
+      maxAge: 60 * 60 * 1000,  // 1h
     });
 
     return nisitRes;

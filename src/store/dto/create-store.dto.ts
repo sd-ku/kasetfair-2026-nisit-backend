@@ -48,10 +48,10 @@ export class CreateStoreRequestDto {
       : value
   )
   @IsEmail({}, { each: true })
-  @Matches(/^[A-Za-z0-9._%+-]+@ku\.th$/, {
-    each: true,
-    message: 'Each email must end with @ku.th',
-  })
+  // @Matches(/^[A-Za-z0-9._%+-]+@ku\.th$/, {
+  //   each: true,
+  //   message: 'Each email must end with @ku.th',
+  // })
   memberGmails: string[]
 }
 

@@ -31,11 +31,12 @@ import { StoreService } from './store.service';
 import { AccessTokenResponse } from 'google-auth-library/build/src/auth/oauth2client';
 import { user } from 'src/auth/entities/access-token.entity'
 import { StoreStatusResponseDto } from './dto/store-state.dto';
+import { StoreType } from '@generated/prisma';
 
 type AuthenticatedRequest = Request & { user };
 
 // store.types.ts
-export type DraftStep = 'store-details' | 'club-info' | 'members' | 'goods'
+export type DraftStep = 'create-store' | 'club-info' | 'store-details' | 'product-details'
 
 @ApiTags('Store')
 @ApiBearerAuth()
@@ -115,6 +116,13 @@ export class StoreController {
     if (!store) throw new NotFoundException('Store not found');
 
     if (step == "create-store") {
+      const memberEmails = await this.storeService.getStoreMemberEmailsByStoreId(store.id)
+      const storeDraft = {
+        ...store,
+        memberEmails: memberEmails
+      }
+      return storeDraft
+    } else if (step == "club-info" && store.type == StoreType.Club) {
       const memberEmails = await this.storeService.getStoreMemberEmailsByStoreId(store.id)
       const storeDraft = {
         ...store,
