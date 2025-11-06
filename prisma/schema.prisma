@@ -23,6 +23,7 @@ enum GoodsType {
 enum StoreState {
   // ขั้นตอนการสร้างร้าน
   CreateStore
+  ClubDetails
   StoreDetails
   ProductDetails
   Submitted

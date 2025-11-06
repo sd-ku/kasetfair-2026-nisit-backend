@@ -6,7 +6,10 @@ import {
   Post,
   Req,
   UnauthorizedException,
+  NotFoundException,
   UseGuards,
+  Header,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -21,14 +24,18 @@ import {
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { CreateStoreDto } from './dto/create-store.dto';
+import { CreateStoreRequestDto, CreateStoreResponseDto } from './dto/create-store.dto';
 import { StoreResponseDto } from './dto/store-response.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { StoreService } from './store.service';
 import { AccessTokenResponse } from 'google-auth-library/build/src/auth/oauth2client';
 import { user } from 'src/auth/entities/access-token.entity'
+import { StoreStatusResponseDto } from './dto/store-state.dto';
 
 type AuthenticatedRequest = Request & { user };
+
+// store.types.ts
+export type DraftStep = 'store-details' | 'club-info' | 'members' | 'goods'
 
 @ApiTags('Store')
 @ApiBearerAuth()
@@ -39,7 +46,7 @@ export class StoreController {
 
   @Post('create')
   @ApiOperation({ summary: 'Create a new store for the authenticated user.' })
-  @ApiCreatedResponse({ type: StoreResponseDto })
+  @ApiCreatedResponse({ type: CreateStoreResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid payload.' })
   @ApiConflictResponse({
     description: 'Store already exists or unique constraint violation.',
@@ -47,8 +54,8 @@ export class StoreController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   async create(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: CreateStoreDto,
-  ): Promise<StoreResponseDto> {
+    @Body() dto: CreateStoreRequestDto,
+  ): Promise<CreateStoreResponseDto> {
     const nisitId = req.user?.nisitId;
     if (!nisitId) {
       throw new UnauthorizedException('Missing user id context.');
@@ -57,25 +64,13 @@ export class StoreController {
     if (!myGmail) {
       throw new UnauthorizedException('Missing user gmail context.');
     }
-    return this.storeService.createForUser(nisitId, myGmail, dto);
+    console.log(dto)
+    const res = await this.storeService.createForUser(nisitId, myGmail, dto);
+    console.log(res)
+    return res;
   }
-
-  @Get('info')
-  @ApiOperation({ summary: 'Retrieve store details linked to the user.' })
-  @ApiOkResponse({ type: StoreResponseDto })
-  @ApiNotFoundResponse({ description: 'Store not found.' })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  async getInfo(
-    @Req() req: AuthenticatedRequest,
-  ): Promise<StoreResponseDto> {
-    const userId = req.user?.userId;
-    if (!userId) {
-      throw new UnauthorizedException('Missing user context.');
-    }
-    return this.storeService.getInfo(userId);
-  }
-
-  @Patch('info')
+  
+  @Patch('mine')
   @ApiOperation({ summary: 'Update store details for the user.' })
   @ApiOkResponse({ type: StoreResponseDto })
   @ApiBadRequestResponse({ description: 'No valid fields provided.' })
@@ -90,5 +85,64 @@ export class StoreController {
       throw new UnauthorizedException('Missing user context.');
     }
     return this.storeService.updateInfo(userId, dto);
+  }
+
+  @Get('mine/draft')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Retrieve store draft or details linked to the current user.' })
+  @ApiOkResponse({ type: StoreResponseDto })
+  @ApiNotFoundResponse({ description: 'Store not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async getStoreDraft(
+    @Req() req: AuthenticatedRequest,
+    @Query('step') step?: string
+  ) {
+    if (!step) {
+      throw new UnauthorizedException('Missing step context.')
+    }
+
+    const nisitId = req.user?.nisitId
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.')
+    }
+    
+    const allowedSteps = ['create-store', 'club-info', 'store-details', 'product-details']
+    if (!allowedSteps.includes(step)) {
+      throw new UnauthorizedException(`Invalid step "${step}"`)
+    }
+
+    const store = await this.storeService.getStoreStatus(nisitId)
+    if (!store) throw new NotFoundException('Store not found');
+
+    if (step == "create-store") {
+      const memberEmails = await this.storeService.getStoreMemberEmailsByStoreId(store.id)
+      const storeDraft = {
+        ...store,
+        memberEmails: memberEmails
+      }
+      return storeDraft
+    }
+  }
+
+  @Get('mine')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Retrieve store details linked to the user.' })
+  @ApiOkResponse({ type: StoreResponseDto })
+  @ApiNotFoundResponse({ description: 'Store not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async getStoreStatus(
+    @Req() req: AuthenticatedRequest,
+    @Query('include') include?: string
+  ) {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+
+    const store = this.storeService.getStoreStatus(nisitId);
+    if (include == 'member') {
+      
+    }
+    return store
   }
 }

@@ -58,6 +58,71 @@ export class StoreRepository {
     return this.prisma.store.findUnique({ where: { id: storeId } });
   }
 
+  async findStoreByNisitId(nisitId: string) {
+    const row = await this.prisma.nisit.findUnique({
+      where: { nisitId },
+      select: {
+        store: {
+          select: { 
+            id: true,
+            storeName: true,
+            boothNumber: true,
+            type: true,
+            state: true
+          }
+        }
+      }
+    });
+    return row?.store ?? null;  // ← คืนแค่ store
+  }
+
+  async findMemberEmailsByStoreId(storeId: number) {
+    const row = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: {
+        members: { select: { email: true } },
+        memberAttemptEmails: {
+          select: { email: true, status: true },
+          orderBy: { email: 'asc' },
+        },
+      },
+    })
+
+    if (!row) return null
+
+    return row
+
+    // // normalize + dedupe
+    // const toNorm = (e?: string | null) => e?.trim().toLowerCase() || null
+
+    // const registeredSet = new Set(
+    //   row.members
+    //     .map(m => toNorm(m.email))
+    //     .filter((e): e is string => !!e)
+    // )
+    // const registered = Array.from(registeredSet)
+
+    // const attemptsNorm = row.memberAttemptEmails
+    //   .map(a => ({
+    //     email: toNorm(a.email),
+    //     status: a.status,
+    //     invitedAt: a.invitedAt ?? null,
+    //     respondedAt: a['respondedAt'] ?? null,
+    //   }))
+    //   .filter(a => !!a.email) as Array<{ email: string; status: StoreMemberStatus; invitedAt: Date | null; respondedAt: Date | null }>
+
+    // // missing = ถูกเชิญ แต่ยังไม่อยู่ใน members
+    // const missingSet = new Set(
+    //   attemptsNorm.filter(a => !registeredSet.has(a.email)).map(a => a.email)
+    // )
+    // const missing = Array.from(missingSet)
+
+    // // เก็บ attempts เฉพาะที่ยังไม่สมัคร (ถ้าต้องการรวมทั้งหมดก็ใช้ attemptsNorm ตรง ๆ)
+    // const attempts = attemptsNorm.filter(a => missingSet.has(a.email))
+
+    // return { registered, missing, attempts }
+  }
+
   // ---------- Nisit <-> Store linking ----------
   async linkNisitAsLeader(nisitId: string, storeId: number, storeRole: any) {
     return this.prisma.nisit.update({
@@ -120,7 +185,7 @@ export class StoreRepository {
           data: missingEmails.map((email) => ({
             storeId: store.id,
             email,
-            status: StoreMemberStatus.Invited,
+            status: StoreMemberStatus.NotFound,
             invitedAt: now,
           })),
           skipDuplicates: true,

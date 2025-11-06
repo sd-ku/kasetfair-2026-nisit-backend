@@ -18,12 +18,14 @@ export class StoreResponseDto {
   @ApiProperty({ enum: StoreState })
   state: StoreState;
 
-  // @ApiProperty({ example: '{ club data }', nullable: true })
-  // clubInfo: number | null;
-
   @ApiProperty({ example: '2025-11-04T12:34:56.789Z' })
   createdAt: Date;
 
   @ApiProperty({ example: '2025-11-04T12:34:56.789Z' })
   updatedAt: Date;
+}
+
+export class StoreMemberEmailsResponseDto {
+  @ApiProperty({ example: ['a@ku.th', 'b@ku.th', 'c@ku.th'], })
+  memberEmails: string[];
 }

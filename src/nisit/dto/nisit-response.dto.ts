@@ -13,7 +13,7 @@ export class NisitResponseDto {
   @ApiProperty({ example: '0891234567' })
   phone: string;
 
-  @ApiProperty({ example: 'arthit@example.com' })
+  @ApiProperty({ example: 'arthit@ku.th' })
   email: string;
 
   @ApiProperty({ example: 'https://example.com/card.jpg', nullable: true })

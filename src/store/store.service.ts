@@ -15,16 +15,27 @@ import {
   StoreState,
   StoreType,
 } from '@generated/prisma';
-import { CreateStoreDto } from './dto/create-store.dto';
+import {
+  CreateStoreRequestDto,
+  CreateStoreResponseDto,
+  mapToCreateResponse,
+} from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
-import { StoreResponseDto } from './dto/store-response.dto';
+import { StoreMemberEmailsResponseDto, StoreResponseDto } from './dto/store-response.dto';
 import { StoreRepository } from './store.repository';
+import { StoreStatusResponseDto } from './dto/store-state.dto'
+import { StoreMemberStatus } from '@generated/prisma'
+
+type MemberEmailStatus = {
+  email: string
+  status: 'joined' | StoreMemberStatus
+}
 
 @Injectable()
 export class StoreService {
   constructor(private readonly repo: StoreRepository) {}
 
-  async createForUser(nisitId: string, myGmail: string, createDto: CreateStoreDto): Promise<StoreResponseDto> {
+  async createForUser(nisitId: string, myGmail: string, createDto: CreateStoreRequestDto): Promise<CreateStoreResponseDto> {
     const nisit = await this.repo.findNisitByNisitId(nisitId);
     if (!nisit) throw new UnauthorizedException('Nisit profile required before accessing store data.');
     if (nisit.storeId) throw new ConflictException('You already have a store assigned.');
@@ -32,7 +43,7 @@ export class StoreService {
     // 1) เตรียมรายการอีเมลสมาชิก (normalize: trim + toLowerCase + unique)
     const raw = [
       ...(createDto.memberGmails ?? []),
-      ...myGmail,
+      myGmail,
     ]
     const normalized = Array.from(
       new Set(raw.map((e) => e.trim().toLowerCase()).filter(Boolean)),
@@ -63,11 +74,9 @@ export class StoreService {
       throw new ConflictException(`Members already assigned to another store: ${list}`);
     }
 
-
     // 2.2) ถ้าเจอไม่ครบ → แจ้งรายการที่หายไป
     const registeredEmails = new Set(foundMapEmail.keys());
     const missingEmails = normalized.filter((e) => !registeredEmails.has(e));
-
 
     // 3) เตรียม data สร้างร้าน
     const storeData: Prisma.StoreCreateInput = {
@@ -76,27 +85,78 @@ export class StoreService {
       state: StoreState.CreateStore,
     };
 
+    // console.log(missingEmails)
     const created = await this.repo.createStoreWithMembersAndAttempts({
       storeData,
       memberNisitIds: found.map(x => x.nisitId),
       missingEmails,
     });
 
-    return this.mapToResponse(created);
+    return mapToCreateResponse(created, missingEmails);
   }
 
-  async getInfo(userSub: string): Promise<StoreResponseDto> {
-    const nisit = await this.resolveNisit(userSub);
-    if (!nisit.storeId) {
-      throw new NotFoundException('Store not found for current user.');
-    }
-
-    const store = await this.repo.findStoreById(nisit.storeId);
+  async getStoreStatus(nisitId: string): Promise<StoreStatusResponseDto> {
+    const store = await this.repo.findStoreByNisitId(nisitId);
     if (!store) {
       throw new NotFoundException('Store not found.');
     }
-    return this.mapToResponse(store);
+    
+    const storeStatus = {
+      id: store.id,
+      storeName: store.storeName,
+      type: store.type,
+      state: store.state
+    }
+
+    return storeStatus
   }
+
+  async getStoreMemberEmailsByStoreId(storeId: number): Promise<MemberEmailStatus[]> {
+    const store = await this.repo.findStoreById(storeId)
+    if (!store) throw new NotFoundException('Store not found')
+
+    // ต้องให้ repo คืน { members: {email}[], memberAttemptEmails: {email,status}[] }
+    const memberEmails = await this.repo.findMemberEmailsByStoreId(storeId)
+    // ถ้าไม่เจอข้อมูลเลยก็คืนลิสต์ว่าง (ไม่ต้อง throw)
+    if (!memberEmails) return []
+
+    const toNorm = (e?: string | null) => e?.trim().toLowerCase() || null
+
+    // 1) เริ่มจาก attempts (ถูกเชิญ)
+    const map = new Map<string, MemberEmailStatus>()
+    for (const a of memberEmails.memberAttemptEmails ?? []) {
+      const email = toNorm(a.email)
+      if (!email) continue
+      map.set(email, { email, status: a.status })
+    }
+
+    // 2) ทับด้วย members (สมาชิกจริง → joined)
+    for (const m of memberEmails.members ?? []) {
+      const email = toNorm(m.email)
+      if (!email) continue
+      map.set(email, { email, status: 'joined' })
+    }
+
+    // 3) แปลงเป็นอาเรย์ + เรียงตามอีเมล (optional)
+    return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email))
+  }
+
+  // async getStoreMemberStatus(nisitId: string): Promise<StoreMemberEmailsResponseDto> {
+  //   const store = await this.repo.findStoreByNisitId(nisitId);
+  //   if (!store) {
+  //     throw new NotFoundException('Store not found.');
+  //   }
+  // }
+    
+  //   const storeStatus = {
+  //     id: store.id,
+  //     storeName: store.storeName,
+  //     type: store.type,
+  //     state: store.state
+  //   }
+
+  //   return storeStatus
+  // }
 
   async updateInfo(userSub: string, updateDto: UpdateStoreDto): Promise<StoreResponseDto> {
     const nisit = await this.resolveNisit(userSub);

@@ -1,4 +1,5 @@
-﻿import { NestFactory } from '@nestjs/core';
+﻿import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -16,6 +17,14 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,            // ตัด field แปลก ๆ ทิ้ง
+    forbidNonWhitelisted: true, // ถ้ามี field นอกเหนือ DTO → 400
+    transform: true,            // แปลงชนิดพื้นฐานอัตโนมัติ
+    stopAtFirstError: false,    // จะรวบรวมทุก error (ปรับตามชอบ)
+    // exceptionFactory: (errors) => new BadRequestException(errors), // ถ้าอยากคุม shape เอง
+  }));
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('KasetFair Backend')
