@@ -4,6 +4,8 @@ import { AppModule } from './app.module';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as express from 'express';
+import * as path from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -17,6 +19,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+  app.use(
+    '/upload',
+    express.static(path.join(process.cwd(), 'upload')),
+  );
 
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,            // ตัด field แปลก ๆ ทิ้ง

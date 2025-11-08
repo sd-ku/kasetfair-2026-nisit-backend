@@ -36,7 +36,7 @@ export class NisitService {
         provider_providerSub: { provider: 'google', providerSub },
       },
       include: {
-        info: true, // ← ใช้ "ชื่อ relation" ไม่ใช่ nisitId
+        info: true,
       },
     });
 
@@ -80,7 +80,7 @@ export class NisitService {
         lastName: nisit.lastName,
         phone: nisit.phone,
         email: nisit.email,
-        nisitCardLink: nisit.nisitCardLink ?? null,
+        nisitCardMediaId: nisit.nisitCardMediaId ?? null,
       };
     } catch (error) {
       throw new BadRequestException('Invalid or incomplete Nisit info data');
@@ -89,7 +89,7 @@ export class NisitService {
 
   private buildCreateData(
     dto: CreateNisitRequestDto,
-  ): Prisma.NisitCreateInput {
+  ) {
     console.log(dto)
     try {
       return {
@@ -98,7 +98,7 @@ export class NisitService {
         lastName: dto.lastName.trim(),
         phone: dto.phone.trim(),
         email: this.normalizeEmail(dto.email),
-        nisitCardLink: this.normalizeStringOrUndefined(dto.nisitCardLink),
+        nisitCardMediaId: this.normalizeStringOrUndefined(dto.nisitCardMediaId),
       };
     } catch (error) {
       console.error(error)

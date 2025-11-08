@@ -17,5 +17,5 @@ export class NisitResponseDto {
   email: string;
 
   @ApiProperty({ example: 'https://example.com/card.jpg', nullable: true })
-  nisitCardLink: string | null;
+  nisitCardMediaId: string | null;
 }

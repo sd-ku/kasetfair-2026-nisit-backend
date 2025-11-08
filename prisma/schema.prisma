@@ -65,13 +65,14 @@ model UserIdentity {
 }
 
 model Nisit {
-  nisitId       String  @id
-  firstName     String
-  lastName      String
-  phone         String  @unique
-  email         String  @unique @db.Citext
-  nisitCardLink String?
-
+  nisitId           String  @id
+  firstName         String
+  lastName          String
+  phone             String  @unique
+  email             String  @unique @db.Citext
+  nisitCardMediaId  String? @unique
+  nisitCardMedia    Media?   @relation("NisitCardMedia", fields: [nisitCardMediaId], references: [id])
+  
   /**
    * ---- One Nisit -> One Store (ผ่าน FK เดียว)
    */
@@ -108,6 +109,10 @@ model Store {
   clubInfoId  Int?       @unique
   clubInfo    ClubInfo?  @relation(fields: [clubInfoId], references: [id], onDelete: SetNull)
   state       StoreState @default(CreateStore)
+  
+  boothMediaId  String?    @unique
+  boothMedia    Media?     @relation("BoothMedia", fields: [boothMediaId], references: [id])
+
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -156,6 +161,24 @@ model Goods {
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
+  goodMediaId String? @unique
+  googleMedia Media? @relation("GoodMedia", fields: [goodMediaId], references: [id])
+
   @@index([storeId])
   @@map("goods")
+}
+
+model Media {
+  id        String   @id @default(cuid()) // ใช้ id นี้เป็น mediaId ส่งให้ frontend
+  provider  String
+  externalId String
+  mimeType  String
+  link       String
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  nisitCardOwner  Nisit?   @relation("NisitCardMedia")
+  storeBooth      Store?   @relation("BoothMedia")
+  good            Goods?   @relation("GoodMedia")
+  @@map("medias")
 }

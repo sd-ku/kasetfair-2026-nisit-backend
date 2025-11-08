@@ -44,5 +44,5 @@ export class CreateNisitRequestDto {
   })
   @IsOptional()
   @IsString()
-  nisitCardLink?: string;
+  nisitCardMediaId?: string;
 }

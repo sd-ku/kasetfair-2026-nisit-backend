@@ -35,7 +35,11 @@ type MemberEmailStatus = {
 export class StoreService {
   constructor(private readonly repo: StoreRepository) {}
 
-  async createForUser(nisitId: string, myGmail: string, createDto: CreateStoreRequestDto): Promise<CreateStoreResponseDto> {
+  async createForUser(
+    nisitId: string,
+    myGmail: string,
+    createDto: CreateStoreRequestDto
+  ): Promise<CreateStoreResponseDto> {
     const nisit = await this.repo.findNisitByNisitId(nisitId);
     if (!nisit) throw new UnauthorizedException('Nisit profile required before accessing store data.');
     if (nisit.storeId) throw new ConflictException('You already have a store assigned.');
@@ -64,7 +68,6 @@ export class StoreService {
         .filter(Boolean) as ReadonlyArray<readonly [string, typeof found[number]]>
     );
 
-
     // 2.1) ถ้าใครมีร้านอยู่แล้ว → ล้มทั้งรายการ (กติกางาน)
     const alreadyAssigned = found.filter((x) => x.storeId);
     if (alreadyAssigned.length) {
@@ -78,11 +81,17 @@ export class StoreService {
     const registeredEmails = new Set(foundMapEmail.keys());
     const missingEmails = normalized.filter((e) => !registeredEmails.has(e));
 
+    console.log(missingEmails)
+
+    const state: StoreState = missingEmails.length === 0
+      ? StoreState.StoreDetails
+      : StoreState.CreateStore;
+
     // 3) เตรียม data สร้างร้าน
     const storeData: Prisma.StoreCreateInput = {
       storeName: createDto.storeName.trim(),
       type: createDto.type ?? StoreType.Nisit,
-      state: StoreState.CreateStore,
+      state: state,
     };
 
     // console.log(missingEmails)

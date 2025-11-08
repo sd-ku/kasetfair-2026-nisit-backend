@@ -33,6 +33,7 @@ import type { Response } from 'express';
 type AuthenticatedRequest = Request & { user?: { userId?: string, email?: string, profileComplete?: boolean } };
 
 @ApiTags('Nisit')
+@UseGuards(JwtAuthGuard)
 @Controller('api/nisit')
 export class NisitController {
   constructor(

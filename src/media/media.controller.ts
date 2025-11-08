@@ -1,74 +1,69 @@
-// media.controller.ts
 import {
-  Controller, Post, UploadedFile, UseInterceptors, BadRequestException, Body
+  Controller,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
+  Body,
+  UseGuards,
+  InternalServerErrorException,
+  UnauthorizedException,
+  Req,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { GoogleDriveProvider } from './provider/google-drive.provider';
 import { PrismaService } from 'src/prisma/prisma.service';
-
-const ACCEPT = new Set(['image/jpeg','image/png','image/webp','application/pdf']);
+import { MediaService } from './media.service'
+import { JwtAuthGuard } from 'src/auth/jwt.guard';
+import { CreateMediaDto } from './dto/create-media.dto';
+import { MediaPurpose } from './dto/create-media.dto';
 
 @Controller('api/media')
+@UseGuards(JwtAuthGuard)
 export class MediaController {
   constructor(
-    private gdrive: GoogleDriveProvider,
     private prisma: PrismaService,
+    private readonly mediaService: MediaService,
   ) {}
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file', {
-    limits: { fileSize: (Number(process.env.MAX_UPLOAD_MB ?? 10)) * 1024 * 1024 },
-  }))
-  async upload(@UploadedFile() file: Express.Multer.File, @Body() body: any) {
-    if (!file) throw new BadRequestException('No file');
-    if (!ACCEPT.has(file.mimetype)) throw new BadRequestException('Unsupported type');
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: (Number(process.env.MAX_UPLOAD_MB ?? 10)) * 1024 * 1024 },
+    }),
+  )
+  async upload(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: CreateMediaDto,
+    @Req() req,
+  ) {
 
-    const drive = this.gdrive.client();
-    const folderId = process.env.DRIVE_NISIT_CARD_FLODER_ID!;
-    const filename = `${Date.now()}-${file.originalname}`.replace(/\s+/g,'_');
+    let id = null;
+    if (body.purpose == MediaPurpose.NISIT_CARD) {
+      id = req.user.userId;
+      if (!id) {
+        throw new UnauthorizedException("invalid sub id")
+      }
+    } else {
+      id = req.user.nisitId;
+      if (!id) {
+        throw new UnauthorizedException("invalid nisit id")
+      }
+    }
 
-    // อัปโหลดแบบ one-shot จาก buffer
-    const res = await drive.files.create({
-      requestBody: {
-        name: filename,
-        parents: [folderId],
-        // ถ้า Shared Drive:
-        // parents: [folderId]
-      },
-      media: {
-        mimeType: file.mimetype,
-        body: BufferToStream(file.buffer),
-      },
-      fields: 'id, webViewLink',
-      supportsAllDrives: true,
-    });
+    // if (!id) {
+    //   throw new UnauthorizedException("invalid id")
+    // }
 
-    // const fileId = res.data.id!;
-    // let publicUrl: string | null = null;
-    // if (process.env.PUBLIC_READ === 'true') {
-    //   await drive.permissions.create({
-    //     fileId,
-    //     requestBody: { role: 'reader', type: 'anyone' },
-    //     supportsAllDrives: true,
-    //   });
-    //   publicUrl = `https://drive.google.com/uc?id=${fileId}&export=view`;
+    // const nisitId = req.user.nisitId;
+    // if (!nisitId) throw new UnauthorizedException("invalid nisit id");
 
-    const fileId = res.data.id;
-    const fileUrl = `https://drive.google.com/uc?id=${fileId}&export=view`;
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
 
-    const data = await this.prisma.nisit.update({
-      where: { nisitId: body.nisitId },
-      data: { nisitCardLink: fileUrl },
-    });
-    return { ok: true, nisitId: data.nisitId, fileId, url: data.nisitCardLink };
+    const filePath = this.mediaService.saveFileToLocal(body.purpose, file, id);  
+
+    return filePath;
   }
-}
-
-// helper: แปลง Buffer → Readable
-import { Readable } from 'stream';
-function BufferToStream(buf: Buffer) {
-  const stream = new Readable();
-  stream.push(buf);
-  stream.push(null);
-  return stream;
 }
