@@ -110,6 +110,19 @@ export class StoreRepository {
     return row.members.map(m => m.nisitId);
   }
 
+  async findBoothMediaIdByStoreId(storeId: number) {
+    const boothMediaId = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: {
+        boothMediaId: true
+      }
+    })
+
+    if (!boothMediaId) return null;
+
+    return boothMediaId.boothMediaId
+  }
+
   // ---------- Club -------------
 
   async findStoreWithMembersAndClub(storeId: number) {
@@ -192,6 +205,15 @@ export class StoreRepository {
         clubInfo: true,
       },
     });
+  }
+
+  async findClubInfoByStoreId(storeId: number) {
+    return this.prisma.store.findUnique({
+      where: { id: storeId },
+      include: {
+        clubInfo: true,
+      },
+    })
   }
 
   // ---------- Nisit <-> Store linking ----------

@@ -8,7 +8,7 @@ export class UpdateClubInfoRequestDto {
 
   @IsOptional()
   @IsString()
-  clubApplicationId?: string; // ถ้าใช้จริง, ถ้าไม่ใช้ก็ลบทิ้ง
+  clubApplicationMediaId?: string; // ถ้าใช้จริง, ถ้าไม่ใช้ก็ลบทิ้ง
 
   @IsOptional()
   @IsString()

@@ -86,36 +86,46 @@ export class StoreService {
     const registeredEmails = new Set(foundMapEmail.keys());
     const missingEmails = normalized.filter((e) => !registeredEmails.has(e));
 
-    console.log(missingEmails)
+    // console.log(missingEmails)
 
-    const state: StoreState = missingEmails.length === 0
-      ? StoreState.StoreDetails
-      : StoreState.CreateStore;
+    // เช็ค type ก่อน
+    const storeType = createDto.type ?? StoreType.Nisit
+
+    // คำนวณ state ตาม business rule
+    let state: StoreState
+
+    if (missingEmails.length > 0) {
+      // ยังหา member ไม่ครบ → ยังไม่ผ่าน step แรก
+      state = StoreState.CreateStore
+    } else if (storeType === StoreType.Club) {
+      // Club + สมาชิกครบ → ไปขั้น ClubInfo ก่อน
+      state = StoreState.ClubInfo
+    } else {
+      // Nisit + สมาชิกครบ → ไป StoreDetails ได้เลย
+      state = StoreState.StoreDetails
+    }
 
     // 3) เตรียม data สร้างร้าน
-    const storeType = createDto.type ?? StoreType.Nisit;
-
     const storeData: Prisma.StoreCreateInput = {
       storeName: createDto.storeName.trim(),
       type: storeType,
-      state: state,
+      state,
 
       ...(storeType === StoreType.Club && {
         clubInfo: {
-          create: {
-          },
-        }
-      })
-    };
+          create: {},
+        },
+      }),
+    }
 
-    // console.log(missingEmails)
     const created = await this.repo.createStoreWithMembersAndAttempts({
       storeData,
-      memberNisitIds: found.map(x => x.nisitId),
+      memberNisitIds: found.map((x) => x.nisitId),
       missingEmails,
-    });
+    })
 
-    return mapToCreateResponse(created, missingEmails);
+    return mapToCreateResponse(created, missingEmails)
+
   }
 
   async updateClubInfo(
@@ -144,7 +154,7 @@ export class StoreService {
 
     const payload = {
       clubName: dto.clubName,
-      clubApplicationId: dto.clubApplicationId,
+      clubApplicationMediaId: dto.clubApplicationMediaId,
       leaderFirstName: dto.leaderFirstName,
       leaderLastName: dto.leaderLastName,
       leaderEmail: dto.leaderEmail?.toLowerCase(),
@@ -174,12 +184,24 @@ export class StoreService {
         throw new NotFoundException('Store not found after update.');
       }
 
-      const complete = this.isObjectComplete(updated.clubInfo);
+      // console.log(updated)
+
+      const complete = this.isObjectComplete(updated.clubInfo, [
+        "clubName",
+        "leaderFirstName",
+        "leaderLastName",
+        "leaderEmail",
+        "leaderPhone",
+        "leaderNisitId",
+        "clubApplicationMediaId",
+      ] as (keyof typeof updated.clubInfo)[]);
+
+      // console.log(complete)
 
       // ขยับ state เฉพาะกรณี:
       // - เดิมอยู่ CreateStore
       // - และ club info ครบตามเกณฑ์
-      if (updated.state === StoreState.CreateStore && complete) {
+      if (updated.state === StoreState.ClubInfo && complete) {
         updated = await tx.store.update({
           where: { id: store.id },
           data: { state: StoreState.StoreDetails },
@@ -187,9 +209,19 @@ export class StoreService {
         });
       }
 
-      return updated; // หรือ map เป็น DTO ตามสไตล์โปรเจค
+      return {
+        storeId:  updated.id,
+        storeName: updated.storeName,
+        type: updated.type,
+        state: updated.state,
+        clubInfo: updated.clubInfo
+      };
     });
   }
+
+  // async updateBoothLayoutMediaId() {
+
+  // }
 
   async getStoreStatus(nisitId: string): Promise<StoreStatusResponseDto> {
     const store = await this.repo.findStoreByNisitId(nisitId);
@@ -227,12 +259,21 @@ export class StoreService {
       }
       return storeDraft
     } else if (state == "ClubInfo" && store.type == StoreType.Club) {
-      const memberEmails = await this.getStoreMemberEmailsByStoreId(store.id)
+      const clubInfo = await this.repo.findClubInfoByStoreId(store.id)
       const storeDraft = {
         ...store,
-        memberEmails: memberEmails
+        clubInfo: clubInfo?.clubInfo
       }
       return storeDraft
+    } else if (state == "StoreDetails") {
+      const layoutMediaId = await this.repo.findBoothMediaIdByStoreId(store.id)
+      const storeDraft = {
+        ...store,
+        boothMediaId: layoutMediaId
+      }
+      return storeDraft
+    } else if (state == "ProductDetails") {
+
     }
   }
 
