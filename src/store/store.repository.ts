@@ -25,6 +25,10 @@ type StoreWithRelations = Store & {
 export class StoreRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  get client() {
+    return this.prisma;
+  }
+
   // ---------- Nisit / Identity ----------
   async findNisitByNisitId(nisitId: string) {
     return this.prisma.nisit.findUnique({ where: { nisitId } });
@@ -91,36 +95,103 @@ export class StoreRepository {
     if (!row) return null
 
     return row
+  }
 
-    // // normalize + dedupe
-    // const toNorm = (e?: string | null) => e?.trim().toLowerCase() || null
+  async findMemberNisitIdsByStoreId(storeId: number) {
+    const row = await this.prisma.store.findUnique({
+      where: { id: storeId },
+      select: {
+        members: { select: { nisitId: true } },
+      },
+    })
 
-    // const registeredSet = new Set(
-    //   row.members
-    //     .map(m => toNorm(m.email))
-    //     .filter((e): e is string => !!e)
-    // )
-    // const registered = Array.from(registeredSet)
+    if (!row) return null
 
-    // const attemptsNorm = row.memberAttemptEmails
-    //   .map(a => ({
-    //     email: toNorm(a.email),
-    //     status: a.status,
-    //     invitedAt: a.invitedAt ?? null,
-    //     respondedAt: a['respondedAt'] ?? null,
-    //   }))
-    //   .filter(a => !!a.email) as Array<{ email: string; status: StoreMemberStatus; invitedAt: Date | null; respondedAt: Date | null }>
+    return row.members.map(m => m.nisitId);
+  }
 
-    // // missing = ถูกเชิญ แต่ยังไม่อยู่ใน members
-    // const missingSet = new Set(
-    //   attemptsNorm.filter(a => !registeredSet.has(a.email)).map(a => a.email)
-    // )
-    // const missing = Array.from(missingSet)
+  // ---------- Club -------------
 
-    // // เก็บ attempts เฉพาะที่ยังไม่สมัคร (ถ้าต้องการรวมทั้งหมดก็ใช้ attemptsNorm ตรง ๆ)
-    // const attempts = attemptsNorm.filter(a => missingSet.has(a.email))
+  async findStoreWithMembersAndClub(storeId: number) {
+    return this.prisma.store.findUnique({
+      where: { id: storeId },
+      include: {
+        members: true,
+        clubInfo: true,
+      },
+    });
+  }
 
-    // return { registered, missing, attempts }
+  async findNisitByEmail(email: string) {
+    return this.prisma.nisit.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+  }
+
+  async createClubInfoForStore(
+    tx: Prisma.TransactionClient,
+    storeId: number,
+    data: {
+      clubName?: string;
+      clubApplicationMediaId?: string;
+      leaderFirstName?: string,
+      leaderLastName?: string,
+      leaderEmail?: string;
+      leaderPhone?: string;
+      leaderNisitId?: string;
+    },
+  ) {
+    return tx.clubInfo.create({
+      data: {
+        storeId,
+        clubName: data.clubName,
+        clubApplicationMediaId: data.clubApplicationMediaId,
+        leaderFirstName: data.leaderFirstName,
+        leaderLastName: data.leaderLastName,
+        leaderEmail: data.leaderEmail,
+        leaderPhone: data.leaderPhone,
+        leaderNisitId: data.leaderNisitId,
+      },
+    });
+  }
+
+  async updateClubInfo(
+    tx: Prisma.TransactionClient,
+    clubInfoId: string,
+    data: {
+      clubName?: string;
+      clubApplicationMediaId?: string;
+      leaderFirstName?: string,
+      leaderLastName?: string,
+      leaderEmail?: string;
+      leaderPhone?: string;
+      leaderNisitId?: string;
+    },
+  ) {
+    return tx.clubInfo.update({
+      where: { id: clubInfoId },
+      data: {
+        clubName: data.clubName,
+        clubApplicationMediaId: data.clubApplicationMediaId,
+        leaderFirstName: data.leaderFirstName,
+        leaderLastName: data.leaderLastName,
+        leaderEmail: data.leaderEmail,
+        leaderPhone: data.leaderPhone,
+        leaderNisitId: data.leaderNisitId,
+      },
+    });
+  }
+  
+  async findStoreWithClubInfoTx(
+    tx: Prisma.TransactionClient,
+    storeId: number,
+  ) {
+    return tx.store.findUnique({
+      where: { id: storeId },
+      include: {
+        clubInfo: true,
+      },
+    });
   }
 
   // ---------- Nisit <-> Store linking ----------

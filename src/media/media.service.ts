@@ -76,6 +76,8 @@ export class MediaService {
     switch (purpose) {
       case MediaPurpose.NISIT_CARD:
         return 'nisit';
+      case MediaPurpose.CLUB_APPLICATION:
+        return 'store/clubApp'
       case MediaPurpose.STORE_BOOTH_LAYOUT:
         return 'store/layout';
       case MediaPurpose.STORE_GOODS:

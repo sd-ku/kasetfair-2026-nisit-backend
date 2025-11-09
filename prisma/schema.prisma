@@ -82,23 +82,11 @@ model Nisit {
 
   // ---- อื่น ๆ ที่มีอยู่เดิม
   userIdentities      UserIdentity[]            @relation("NisitUserIdentities")
-  leadedClubs         ClubInfo[]                @relation("club_leader")
+  // leadedClubs         ClubInfo[]                @relation("club_leader")
   storeMemberAttempts StoreMemberAttemptEmail[]
 
   @@index([storeId])
   @@map("nisit")
-}
-
-model ClubInfo {
-  id              Int     @id @default(autoincrement())
-  clubName        String
-  leaderNisitId   String?
-  applicationLink String?
-
-  leader Nisit? @relation("club_leader", fields: [leaderNisitId], references: [nisitId], onDelete: SetNull)
-  store  Store?
-
-  @@map("club_info")
 }
 
 model Store {
@@ -106,19 +94,16 @@ model Store {
   storeName   String
   boothNumber String?    @unique
   type        StoreType
-  clubInfoId  Int?       @unique
-  clubInfo    ClubInfo?  @relation(fields: [clubInfoId], references: [id], onDelete: SetNull)
   state       StoreState @default(CreateStore)
-  
-  boothMediaId  String?    @unique
-  boothMedia    Media?     @relation("BoothMedia", fields: [boothMediaId], references: [id])
+
+  clubInfo    ClubInfo?
+
+  boothMediaId  String?   @unique
+  boothMedia    Media?    @relation("BoothMedia", fields: [boothMediaId], references: [id])
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  /**
-   * ---- One Store -> Many Nisit (ฝั่งกลับจาก FK)
-   */
   members Nisit[]
   goods   Goods[]
 
@@ -127,6 +112,28 @@ model Store {
   @@index([type])
   @@index([state])
   @@map("store")
+}
+
+model ClubInfo {
+  id                  String     @id @default(cuid())
+  clubName            String?
+  clubApplicationMediaId  String?     @unique
+  clubApplicationMedia    Media?     @relation("ClubApplicationMedia", fields: [clubApplicationMediaId], references: [id])
+
+  // หนึ่ง ClubInfo ผูกกับ Store เดียว บังคับต้องมี
+  storeId         Int        @unique
+  store           Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  // --- Leader contact เป็นข้อมูลหลัก (ไม่ต้องเป็น user ในระบบก็ได้)
+  leaderFirstName String?
+  leaderLastName  String?
+  leaderEmail     String?
+  leaderPhone     String?
+  
+  leaderNisitId   String?
+  // leader          Nisit?     @relation("club_leader", fields: [leaderNisitId], references: [nisitId], onDelete: SetNull)
+
+  @@map("club_info")
 }
 
 model StoreMemberAttemptEmail {
@@ -178,6 +185,7 @@ model Media {
   createdAt DateTime @default(now())
 
   nisitCardOwner  Nisit?   @relation("NisitCardMedia")
+  clubApplication ClubInfo? @relation("ClubApplicationMedia")
   storeBooth      Store?   @relation("BoothMedia")
   good            Goods?   @relation("GoodMedia")
   @@map("medias")

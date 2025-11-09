@@ -17,7 +17,7 @@ export class NisitService {
   async register(createDto: CreateNisitRequestDto): Promise<NisitResponseDto> {
     
     const data = this.buildCreateData(createDto);
-    console.log(`data info res: ${data}`)
+    // console.log(`data info res: ${data}`)
 
     try {
       const nisit = await this.prisma.nisit.create({ data });

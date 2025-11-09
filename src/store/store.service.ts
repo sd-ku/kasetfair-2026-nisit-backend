@@ -25,6 +25,8 @@ import { StoreMemberEmailsResponseDto, StoreResponseDto } from './dto/store-resp
 import { StoreRepository } from './store.repository';
 import { StoreStatusResponseDto } from './dto/store-state.dto'
 import { StoreMemberStatus } from '@generated/prisma'
+import { NisitService } from 'src/nisit/nisit.service';
+import { UpdateClubInfoRequestDto } from './dto/update-clubInfo.dto';
 
 type MemberEmailStatus = {
   email: string
@@ -33,7 +35,10 @@ type MemberEmailStatus = {
 
 @Injectable()
 export class StoreService {
-  constructor(private readonly repo: StoreRepository) {}
+  constructor(
+    private readonly repo: StoreRepository,
+    private readonly nisitService: NisitService
+  ) {}
 
   async createForUser(
     nisitId: string,
@@ -88,10 +93,19 @@ export class StoreService {
       : StoreState.CreateStore;
 
     // 3) เตรียม data สร้างร้าน
+    const storeType = createDto.type ?? StoreType.Nisit;
+
     const storeData: Prisma.StoreCreateInput = {
       storeName: createDto.storeName.trim(),
-      type: createDto.type ?? StoreType.Nisit,
+      type: storeType,
       state: state,
+
+      ...(storeType === StoreType.Club && {
+        clubInfo: {
+          create: {
+          },
+        }
+      })
     };
 
     // console.log(missingEmails)
@@ -102,6 +116,79 @@ export class StoreService {
     });
 
     return mapToCreateResponse(created, missingEmails);
+  }
+
+  async updateClubInfo(
+    actorNisitId: string,
+    dto: UpdateClubInfoRequestDto,
+  ) {
+    const temp = await this.repo.findStoreByNisitId(actorNisitId)
+    if (!temp) throw new NotFoundException('Store not found.');
+    const storeId = temp?.id
+    
+    // 1) เอา store + members + clubInfo จาก repo
+    const store = await this.repo.findStoreWithMembersAndClub(storeId);
+
+    if (!store) throw new NotFoundException('Store not found.');
+    if (store.type !== StoreType.Club) {
+      throw new BadRequestException('Not a club store.');
+    }
+
+    // const isMember = store.members.some((m) => m.nisitId === actorNisitId);
+    // if (!isMember) {
+    //   throw new ForbiddenException('Not your store.');
+    // }
+
+    // 2) หา Nisit จาก leaderEmail (ถ้ามีในระบบ)
+    // const nisit = await this.repo.findNisitByNisitId(dto.leaderId);
+
+    const payload = {
+      clubName: dto.clubName,
+      clubApplicationId: dto.clubApplicationId,
+      leaderFirstName: dto.leaderFirstName,
+      leaderLastName: dto.leaderLastName,
+      leaderEmail: dto.leaderEmail?.toLowerCase(),
+      leaderPhone: dto.leaderPhone,
+      leaderNisitId: dto.leaderNisitId,
+    };
+
+
+    // 3) ทำงานใน transaction ผ่าน prisma client จาก repo
+    return this.repo.client.$transaction(async (tx) => {
+      let clubInfoId = store.clubInfo?.id;
+
+      if (!clubInfoId) {
+        const created = await this.repo.createClubInfoForStore(
+          tx,
+          store.id,
+          payload,
+        );
+        clubInfoId = created.id;
+      } else {
+        await this.repo.updateClubInfo(tx, clubInfoId, payload);
+      }
+
+      // ดึง store+clubInfo เวอร์ชันล่าสุดหลัง update
+      let updated = await this.repo.findStoreWithClubInfoTx(tx, store.id);
+      if (!updated) {
+        throw new NotFoundException('Store not found after update.');
+      }
+
+      const complete = this.isObjectComplete(updated.clubInfo);
+
+      // ขยับ state เฉพาะกรณี:
+      // - เดิมอยู่ CreateStore
+      // - และ club info ครบตามเกณฑ์
+      if (updated.state === StoreState.CreateStore && complete) {
+        updated = await tx.store.update({
+          where: { id: store.id },
+          data: { state: StoreState.StoreDetails },
+          include: { clubInfo: true },
+        });
+      }
+
+      return updated; // หรือ map เป็น DTO ตามสไตล์โปรเจค
+    });
   }
 
   async getStoreStatus(nisitId: string): Promise<StoreStatusResponseDto> {
@@ -118,6 +205,35 @@ export class StoreService {
     }
 
     return storeStatus
+  }
+
+  async getStoreDraft(store: StoreStatusResponseDto, nisitId: number) {
+
+    if (!store) throw new NotFoundException('Store not found');
+    const state = store.state
+    if (!state) {
+      throw new UnauthorizedException('Missing state context.')
+    }
+
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.')
+    }
+
+    if (state == "CreateStore") {
+      const memberEmails = await this.getStoreMemberEmailsByStoreId(store.id)
+      const storeDraft = {
+        ...store,
+        memberEmails: memberEmails
+      }
+      return storeDraft
+    } else if (state == "ClubInfo" && store.type == StoreType.Club) {
+      const memberEmails = await this.getStoreMemberEmailsByStoreId(store.id)
+      const storeDraft = {
+        ...store,
+        memberEmails: memberEmails
+      }
+      return storeDraft
+    }
   }
 
   async getStoreMemberEmailsByStoreId(storeId: number): Promise<MemberEmailStatus[]> {
@@ -167,7 +283,7 @@ export class StoreService {
   //   return storeStatus
   // }
 
-  async updateInfo(userSub: string, updateDto: UpdateStoreDto): Promise<StoreResponseDto> {
+  async updateStoreInfo(userSub: string, updateDto: UpdateStoreDto): Promise<StoreResponseDto> {
     const nisit = await this.resolveNisit(userSub);
 
     if (!nisit.storeId) {
@@ -233,5 +349,26 @@ export class StoreService {
     }
 
     return new Error('Unknown error');
+  }
+
+  private isObjectComplete<T extends Record<string, any>>(
+    obj?: T | null,
+    requiredFields?: (keyof T)[]
+  ): boolean {
+    if (!obj) return false;
+
+    // ถ้าระบุ requiredFields → ใช้เฉพาะ field นั้น
+    // ถ้าไม่ระบุ → เช็คทุก key ของ object
+    const fields = requiredFields ?? (Object.keys(obj) as (keyof T)[]);
+
+    return fields.every((key) => {
+      const value = obj[key];
+      if (value === null || value === undefined) return false;
+
+      // ตัดกรณีเป็น string ว่างออก
+      if (typeof value === 'string' && value.trim() === '') return false;
+
+      return true;
+    });
   }
 }

@@ -32,6 +32,7 @@ import { AccessTokenResponse } from 'google-auth-library/build/src/auth/oauth2cl
 import { user } from 'src/auth/entities/access-token.entity'
 import { StoreStatusResponseDto } from './dto/store-state.dto';
 import { StoreType } from '@generated/prisma';
+import { UpdateClubInfoRequestDto } from './dto/update-clubInfo.dto';
 
 type AuthenticatedRequest = Request & { user };
 
@@ -85,7 +86,26 @@ export class StoreController {
     if (!userId) {
       throw new UnauthorizedException('Missing user context.');
     }
-    return this.storeService.updateInfo(userId, dto);
+    return this.storeService.updateStoreInfo(userId, dto);
+  }
+
+  @Patch('mine/club-info')
+  @ApiOperation({ summary: 'Update club info for the authenticated user store.' })
+  @ApiOkResponse({ type: StoreResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid club info payload.' })
+  @ApiNotFoundResponse({ description: 'Store not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async updateMyClubInfo(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateClubInfoRequestDto, // ใช้ DTO ของ club info แทน UpdateStoreDto
+  ) {
+    // console.log(dto)
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+
+    return this.storeService.updateClubInfo(nisitId, dto);
   }
 
   @Get('mine/draft')
@@ -147,10 +167,13 @@ export class StoreController {
       throw new UnauthorizedException('Missing user context.');
     }
 
-    const store = this.storeService.getStoreStatus(nisitId);
-    if (include == 'member') {
-      
+    const store = await this.storeService.getStoreStatus(nisitId);
+    
+    const draftState = ['CreateStore', 'ClubInfo', 'StoreDetails', 'ProductDetails']
+    if (draftState.includes(store.state)) {
+      return this.storeService.getStoreDraft(store, nisitId)
     }
+
     return store
   }
 }
