@@ -6,7 +6,8 @@ import {
   Store,
   Nisit,
   StoreMemberAttemptEmail,
-  StoreMemberStatus
+  StoreMemberStatus,
+  Goods,
 } from '@generated/prisma';
 
 type CreateWithMembersAndAttemptsInput = {
@@ -121,6 +122,34 @@ export class StoreRepository {
     if (!boothMediaId) return null;
 
     return boothMediaId.boothMediaId
+  }
+
+  // ---------- Goods ----------
+
+  async findGoodsByStoreId(storeId: number): Promise<Goods[]> {
+    return this.prisma.goods.findMany({
+      where: { storeId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async findGoodById(id: string): Promise<Goods | null> {
+    return this.prisma.goods.findUnique({ where: { id } });
+  }
+
+  async createGood(data: Prisma.GoodsUncheckedCreateInput): Promise<Goods> {
+    return this.prisma.goods.create({ data });
+  }
+
+  async updateGood(id: string, data: Prisma.GoodsUncheckedUpdateInput): Promise<Goods> {
+    return this.prisma.goods.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteGood(id: string): Promise<void> {
+    await this.prisma.goods.delete({ where: { id } });
   }
 
   // ---------- Club -------------

@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import {
+  Goods,
   Nisit,
   Prisma,
   Store,
@@ -27,6 +28,7 @@ import { StoreStatusResponseDto } from './dto/store-state.dto'
 import { StoreMemberStatus } from '@generated/prisma'
 import { NisitService } from 'src/nisit/nisit.service';
 import { UpdateClubInfoRequestDto } from './dto/update-clubInfo.dto';
+import { CreateGoodDto, GoodsResponseDto, UpdateGoodDto } from './dto/goods.dto';
 
 type MemberEmailStatus = {
   email: string
@@ -273,7 +275,10 @@ export class StoreService {
       }
       return storeDraft
     } else if (state == "ProductDetails") {
-
+      const storeDraft = {
+        ...store,
+      }
+      return storeDraft;
     }
   }
 
@@ -305,6 +310,76 @@ export class StoreService {
 
     // 3) แปลงเป็นอาเรย์ + เรียงตามอีเมล (optional)
     return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email))
+  }
+
+  // ---------- Goods CRUD ----------
+
+  async listGoods(nisitId: string): Promise<GoodsResponseDto[]> {
+    const storeId = await this.ensureStoreIdForNisit(nisitId);
+    const goods = await this.repo.findGoodsByStoreId(storeId);
+    return goods.map((good) => this.mapGoodResponse(good));
+  }
+
+  async createGood(nisitId: string, dto: CreateGoodDto): Promise<GoodsResponseDto> {
+    const storeId = await this.ensureStoreIdForNisit(nisitId);
+    const payload: Prisma.GoodsUncheckedCreateInput = {
+      name: dto.name.trim(),
+      type: dto.type,
+      price: dto.price,
+      storeId,
+      goodMediaId: this.normalizeNullableString(dto.goodMediaId) ?? null,
+    };
+
+    try {
+      const good = await this.repo.createGood(payload);
+      return this.mapGoodResponse(good);
+    } catch (error) {
+      throw this.transformPrismaError(error);
+    }
+  }
+
+  async getGood(nisitId: string, goodId: string): Promise<GoodsResponseDto> {
+    const storeId = await this.ensureStoreIdForNisit(nisitId);
+    const good = await this.ensureGoodBelongsToStore(goodId, storeId);
+    return this.mapGoodResponse(good);
+  }
+
+  async updateGood(
+    nisitId: string,
+    goodId: string,
+    dto: UpdateGoodDto
+  ): Promise<GoodsResponseDto> {
+    const storeId = await this.ensureStoreIdForNisit(nisitId);
+    await this.ensureGoodBelongsToStore(goodId, storeId);
+
+    const data: Prisma.GoodsUncheckedUpdateInput = {};
+    if (dto.name !== undefined) data.name = dto.name.trim();
+    if (dto.type !== undefined) data.type = dto.type;
+    if (dto.price !== undefined) data.price = dto.price;
+    if (dto.goodMediaId !== undefined) {
+      data.goodMediaId = this.normalizeNullableString(dto.goodMediaId);
+    }
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('No fields provided to update.');
+    }
+
+    try {
+      const updated = await this.repo.updateGood(goodId, data);
+      return this.mapGoodResponse(updated);
+    } catch (error) {
+      throw this.transformPrismaError(error);
+    }
+  }
+
+  async deleteGood(nisitId: string, goodId: string): Promise<void> {
+    const storeId = await this.ensureStoreIdForNisit(nisitId);
+    await this.ensureGoodBelongsToStore(goodId, storeId);
+    try {
+      await this.repo.deleteGood(goodId);
+    } catch (error) {
+      throw this.transformPrismaError(error);
+    }
   }
 
   // async getStoreMemberStatus(nisitId: string): Promise<StoreMemberEmailsResponseDto> {
@@ -356,6 +431,26 @@ export class StoreService {
     return identity.info;
   }
 
+  private async ensureStoreIdForNisit(nisitId: string): Promise<number> {
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+
+    const store = await this.repo.findStoreByNisitId(nisitId);
+    if (!store) {
+      throw new NotFoundException('Store not found.');
+    }
+    return store.id;
+  }
+
+  private async ensureGoodBelongsToStore(goodId: string, storeId: number): Promise<Goods> {
+    const good = await this.repo.findGoodById(goodId);
+    if (!good || good.storeId !== storeId) {
+      throw new NotFoundException('Good not found.');
+    }
+    return good;
+  }
+
   private buildUpdateData(dto: UpdateStoreDto): Prisma.StoreUpdateInput {
     const data: Prisma.StoreUpdateInput = {};
     if (dto.storeName !== undefined) data.storeName = dto.storeName.trim();
@@ -375,6 +470,19 @@ export class StoreService {
     };
   }
 
+  private mapGoodResponse(good: Goods): GoodsResponseDto {
+    return {
+      id: good.id,
+      name: good.name,
+      type: good.type,
+      price: good.price.toString(),
+      storeId: good.storeId,
+      goodMediaId: good.goodMediaId ?? null,
+      createdAt: good.createdAt,
+      updatedAt: good.updatedAt,
+    };
+  }
+
   private transformPrismaError(error: unknown): Error {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
@@ -390,6 +498,14 @@ export class StoreService {
     }
 
     return new Error('Unknown error');
+  }
+
+  private normalizeNullableString(value?: string | null): string | null | undefined {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 
   private isObjectComplete<T extends Record<string, any>>(

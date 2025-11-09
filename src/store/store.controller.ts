@@ -1,24 +1,29 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Header,
+  HttpCode,
+  NotFoundException,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
-  NotFoundException,
   UseGuards,
-  Header,
-  Query,
+  Param,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -33,6 +38,7 @@ import { user } from 'src/auth/entities/access-token.entity'
 import { StoreStatusResponseDto } from './dto/store-state.dto';
 import { StoreType } from '@generated/prisma';
 import { UpdateClubInfoRequestDto } from './dto/update-clubInfo.dto';
+import { CreateGoodDto, GoodsResponseDto, UpdateGoodDto } from './dto/goods.dto';
 
 type AuthenticatedRequest = Request & { user };
 
@@ -175,5 +181,87 @@ export class StoreController {
     }
 
     return store
+  }
+
+  @Get('goods')
+  @ApiOperation({ summary: 'List all goods for the authenticated user store.' })
+  @ApiOkResponse({ type: GoodsResponseDto, isArray: true })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async listGoods(@Req() req: AuthenticatedRequest): Promise<GoodsResponseDto[]> {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+    return this.storeService.listGoods(nisitId);
+  }
+
+  @Post('goods')
+  @ApiOperation({ summary: 'Create a good for the authenticated user store.' })
+  @ApiCreatedResponse({ type: GoodsResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid payload.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async createGood(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateGoodDto,
+  ): Promise<GoodsResponseDto> {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+    return this.storeService.createGood(nisitId, dto);
+  }
+
+  @Get('goods/:goodId')
+  @ApiOperation({ summary: 'Get details for a single good in the user store.' })
+  @ApiOkResponse({ type: GoodsResponseDto })
+  @ApiNotFoundResponse({ description: 'Good not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiParam({ name: 'goodId', description: 'Identifier of the good.' })
+  async getGood(
+    @Req() req: AuthenticatedRequest,
+    @Param('goodId') goodId: string,
+  ): Promise<GoodsResponseDto> {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+    return this.storeService.getGood(nisitId, goodId);
+  }
+
+  @Patch('goods/:goodId')
+  @ApiOperation({ summary: 'Update a good belonging to the user store.' })
+  @ApiOkResponse({ type: GoodsResponseDto })
+  @ApiBadRequestResponse({ description: 'No valid fields provided.' })
+  @ApiNotFoundResponse({ description: 'Good not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiParam({ name: 'goodId', description: 'Identifier of the good.' })
+  async updateGood(
+    @Req() req: AuthenticatedRequest,
+    @Param('goodId') goodId: string,
+    @Body() dto: UpdateGoodDto,
+  ): Promise<GoodsResponseDto> {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+    return this.storeService.updateGood(nisitId, goodId, dto);
+  }
+
+  @Delete('goods/:goodId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete a good from the user store.' })
+  @ApiNoContentResponse({ description: 'Good deleted.' })
+  @ApiNotFoundResponse({ description: 'Good not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  @ApiParam({ name: 'goodId', description: 'Identifier of the good.' })
+  async deleteGood(
+    @Req() req: AuthenticatedRequest,
+    @Param('goodId') goodId: string,
+  ): Promise<void> {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+    await this.storeService.deleteGood(nisitId, goodId);
   }
 }
