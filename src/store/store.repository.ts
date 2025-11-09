@@ -124,6 +124,17 @@ export class StoreRepository {
     return boothMediaId.boothMediaId
   }
 
+  async findStoreWithValidation(storeId: number) {
+    return this.prisma.store.findUnique({
+      where: { id: storeId },
+      include: {
+        members: true,
+        clubInfo: true,
+        goods: true,
+      },
+    });
+  }
+
   // ---------- Goods ----------
 
   async findGoodsByStoreId(storeId: number): Promise<Goods[]> {

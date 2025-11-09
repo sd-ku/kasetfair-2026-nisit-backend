@@ -39,6 +39,7 @@ import { StoreStatusResponseDto } from './dto/store-state.dto';
 import { StoreType } from '@generated/prisma';
 import { UpdateClubInfoRequestDto } from './dto/update-clubInfo.dto';
 import { CreateGoodDto, GoodsResponseDto, UpdateGoodDto } from './dto/goods.dto';
+import { StorePendingValidationResponseDto } from './dto/store-validation.dto';
 
 type AuthenticatedRequest = Request & { user };
 
@@ -181,6 +182,21 @@ export class StoreController {
     }
 
     return store
+  }
+
+  @Get('mine/commit')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Validate the current store before moving to pending state.' })
+  @ApiOkResponse({ type: StorePendingValidationResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async validateBeforePending(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<StorePendingValidationResponseDto> {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+    return this.storeService.commitStoreForPending(nisitId);
   }
 
   @Get('goods')

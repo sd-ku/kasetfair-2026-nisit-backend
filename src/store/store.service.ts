@@ -29,6 +29,11 @@ import { StoreMemberStatus } from '@generated/prisma'
 import { NisitService } from 'src/nisit/nisit.service';
 import { UpdateClubInfoRequestDto } from './dto/update-clubInfo.dto';
 import { CreateGoodDto, GoodsResponseDto, UpdateGoodDto } from './dto/goods.dto';
+import { StorePendingValidationResponseDto, StoreValidationChecklistItemDto } from './dto/store-validation.dto';
+
+// สมมติใช้ StoreState.Pending เป็นสถานะ "ส่งตรวจแล้ว"
+const READY_FOR_PENDING_STATES: StoreState[] = [StoreState.ProductDetails];
+const PENDING_STATE = StoreState.Pending;
 
 type MemberEmailStatus = {
   email: string
@@ -312,6 +317,151 @@ export class StoreService {
     return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email))
   }
 
+  async validateStoreForPending(nisitId: string): Promise<StorePendingValidationResponseDto> {
+    const storeSummary = await this.repo.findStoreByNisitId(nisitId);
+    if (!storeSummary) {
+      throw new NotFoundException('Store not found.');
+    }
+
+    const store = await this.repo.findStoreWithValidation(storeSummary.id);
+    if (!store) {
+      throw new NotFoundException('Store not found.');
+    }
+
+    const isMember = store.members?.some((member) => member.nisitId === nisitId) ?? false;
+    if (!isMember) {
+      throw new ForbiddenException('You are not a member of this store.');
+    }
+
+    const checklist: StoreValidationChecklistItemDto[] = [];
+
+    // 1) สมาชิก >= 3
+    const memberCount = store.members?.length ?? 0;
+    const membersOk = memberCount >= 3;
+    checklist.push({
+      key: 'members',
+      label: 'สมาชิกลงทะเบียนครบ 3 คน',
+      ok: membersOk,
+      message: membersOk
+        ? undefined
+        : 'ต้องมีสมาชิกที่ลงทะเบียนครบอย่างน้อย 3 คน',
+    });
+
+    // 2) Club info (เฉพาะร้าน Club)
+    let clubInfoOk = true;
+    if (store.type === StoreType.Club) {
+      clubInfoOk = this.isObjectComplete(store.clubInfo, [
+        'clubName',
+        'clubApplicationMediaId',
+        'leaderFirstName',
+        'leaderLastName',
+        'leaderEmail',
+        'leaderPhone',
+        'leaderNisitId',
+      ]);
+      checklist.push({
+        key: 'clubInfo',
+        label: 'ข้อมูลชมรมครบถ้วน',
+        ok: clubInfoOk,
+        message: clubInfoOk
+          ? undefined
+          : 'กรุณากรอกข้อมูลชมรมและอัปโหลดไฟล์ให้ครบ',
+      });
+    }
+
+    // 3) Booth / แผนผังบูธ
+    const boothOk = Boolean(store.boothMediaId);
+    checklist.push({
+      key: 'boothMedia',
+      label: 'อัปโหลดแผนผังบูธ',
+      ok: boothOk,
+      message: boothOk ? undefined : 'กรุณาอัปโหลดไฟล์แผนผังบูธ',
+    });
+
+    // 4) Goods มีอย่างน้อย 1 รายการ
+    const goodsCount = store.goods?.length ?? 0;
+    const goodsOk = goodsCount > 0;
+    checklist.push({
+      key: 'goods',
+      label: 'กรอกข้อมูลสินค้า',
+      ok: goodsOk,
+      message: goodsOk ? undefined : 'กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ',
+    });
+
+    // 5) State ปัจจุบันอยู่ขั้นพร้อมส่ง (เช่น ProductDetails)
+    const stateOk = READY_FOR_PENDING_STATES.includes(store.state);
+    checklist.push({
+      key: 'state',
+      label: 'อยู่ในขั้นตอน ProductDetails ก่อนส่งตรวจ',
+      ok: stateOk,
+      message: stateOk
+        ? undefined
+        : 'ต้องทำขั้นตอนให้ถึง ProductDetails ก่อนส่งตรวจ',
+    });
+
+    const isValid = checklist.every((item) => item.ok);
+
+    return {
+      storeId: store.id,
+      type: store.type,
+      state: store.state,
+      isValid,
+      checklist,
+    };
+  }
+
+  async commitStoreForPending(nisitId: string): Promise<StorePendingValidationResponseDto> {
+    // 1) ตรวจ checklist ก่อน
+    const validation = await this.validateStoreForPending(nisitId);
+
+    // ถ้าไม่ผ่าน → ไม่เปลี่ยน state คืน checklist ให้ frontend ไปโชว์
+    if (!validation.isValid) {
+      return validation;
+    }
+
+    // 2) กัน edge case: ถึง valid แต่ state ปัจจุบันไม่ใช่ READY_FOR_PENDING_STATES
+    if (!READY_FOR_PENDING_STATES.includes(validation.state)) {
+      const patchedChecklist = validation.checklist.map((item) =>
+        item.key === 'state'
+          ? {
+              ...item,
+              ok: false,
+              message:
+                'สถานะปัจจุบันไม่สามารถส่งตรวจได้ กรุณาตรวจสอบขั้นตอนล่าสุด',
+            }
+          : item
+      );
+
+      return {
+        ...validation,
+        isValid: false,
+        checklist: patchedChecklist,
+      };
+    }
+
+    // 3) เปลี่ยน state → Pending
+    const updated = await this.repo.client.store.update({
+      where: { id: validation.storeId },
+      data: { state: PENDING_STATE },
+      include: {
+        clubInfo: true,
+        members: true,
+        goods: true,
+      },
+    });
+
+    // 4) (เลือกได้) จะ re-run validate อีกรอบเพื่อความชัวร์ก็ได้
+    // แต่โดยตรรกะ ถ้าเมื่อกี้ผ่านแล้วและเราเปลี่ยนแค่ state → ยัง valid อยู่
+    return {
+      storeId: updated.id,
+      type: updated.type,
+      state: updated.state,
+      isValid: true,
+      checklist: validation.checklist,
+    };
+  }
+
+
   // ---------- Goods CRUD ----------
 
   async listGoods(nisitId: string): Promise<GoodsResponseDto[]> {
@@ -381,23 +531,6 @@ export class StoreService {
       throw this.transformPrismaError(error);
     }
   }
-
-  // async getStoreMemberStatus(nisitId: string): Promise<StoreMemberEmailsResponseDto> {
-  //   const store = await this.repo.findStoreByNisitId(nisitId);
-  //   if (!store) {
-  //     throw new NotFoundException('Store not found.');
-  //   }
-  // }
-    
-  //   const storeStatus = {
-  //     id: store.id,
-  //     storeName: store.storeName,
-  //     type: store.type,
-  //     state: store.state
-  //   }
-
-  //   return storeStatus
-  // }
 
   async updateStoreInfo(userSub: string, updateDto: UpdateStoreDto): Promise<StoreResponseDto> {
     const nisit = await this.resolveNisit(userSub);
