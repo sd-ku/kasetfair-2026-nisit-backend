@@ -9,7 +9,7 @@ import {
   Min,
 } from 'class-validator';
 
-export class UpdateStoreDto {
+export class UpdateDraftStoreDto {
   @ApiPropertyOptional({
     description: 'Update the display name of the store.',
     example: 'Kaset Fair Drinks',
@@ -26,4 +26,12 @@ export class UpdateStoreDto {
   @IsOptional()
   @IsEnum(StoreType)
   type?: StoreType;
+
+  @ApiPropertyOptional({
+  description: 'Media ID for the booth image.',
+  example: 'cmhuynglj0000dkp44jhs41kt',
+})
+  @IsOptional()
+  @IsString()
+  boothMediaId?: string;
 }

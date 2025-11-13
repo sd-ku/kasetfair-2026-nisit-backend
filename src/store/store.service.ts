@@ -21,7 +21,7 @@ import {
   CreateStoreResponseDto,
   mapToCreateResponse,
 } from './dto/create-store.dto';
-import { UpdateStoreDto } from './dto/update-store.dto';
+import { UpdateDraftStoreDto } from './dto/update-store.dto';
 import { StoreMemberEmailsResponseDto, StoreResponseDto } from './dto/store-response.dto';
 import { StoreRepository } from './store.repository';
 import { StoreStatusResponseDto } from './dto/store-state.dto'
@@ -532,7 +532,7 @@ export class StoreService {
     }
   }
 
-  async updateStoreInfo(userSub: string, updateDto: UpdateStoreDto): Promise<StoreResponseDto> {
+  async updateStoreInfo(userSub: string, updateDto: UpdateDraftStoreDto): Promise<StoreResponseDto> {
     const nisit = await this.resolveNisit(userSub);
 
     if (!nisit.storeId) {
@@ -548,7 +548,12 @@ export class StoreService {
     }
 
     try {
-      const store = await this.repo.updateStore(nisit.storeId, data);
+      let store = await this.repo.updateStore(nisit.storeId, data);
+      if (store && updateDto.boothMediaId) {
+        let store = await this.repo.updateStore(nisit.storeId, {
+          state: StoreState.ProductDetails
+        });
+      }
       return this.mapToResponse(store);
     } catch (error) {
       throw this.transformPrismaError(error);
@@ -584,10 +589,15 @@ export class StoreService {
     return good;
   }
 
-  private buildUpdateData(dto: UpdateStoreDto): Prisma.StoreUpdateInput {
+  private buildUpdateData(dto: UpdateDraftStoreDto): Prisma.StoreUpdateInput {
     const data: Prisma.StoreUpdateInput = {};
     if (dto.storeName !== undefined) data.storeName = dto.storeName.trim();
     if (dto.type !== undefined) data.type = dto.type;
+    if (dto.boothMediaId !== undefined) {
+      data.boothMedia = {
+        connect: { id: dto.boothMediaId.trim() },
+      };
+    }
     return data;
   }
 

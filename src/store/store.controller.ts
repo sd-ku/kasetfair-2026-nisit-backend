@@ -31,7 +31,7 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { CreateStoreRequestDto, CreateStoreResponseDto } from './dto/create-store.dto';
 import { StoreResponseDto } from './dto/store-response.dto';
-import { UpdateStoreDto } from './dto/update-store.dto';
+import { UpdateDraftStoreDto } from './dto/update-store.dto';
 import { StoreService } from './store.service';
 import { AccessTokenResponse } from 'google-auth-library/build/src/auth/oauth2client';
 import { user } from 'src/auth/entities/access-token.entity'
@@ -79,7 +79,7 @@ export class StoreController {
     return res;
   }
   
-  @Patch('mine')
+  @Patch('mine/draft')
   @ApiOperation({ summary: 'Update store details for the user.' })
   @ApiOkResponse({ type: StoreResponseDto })
   @ApiBadRequestResponse({ description: 'No valid fields provided.' })
@@ -87,7 +87,7 @@ export class StoreController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   async updateInfo(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: UpdateStoreDto,
+    @Body() dto: UpdateDraftStoreDto,
   ): Promise<StoreResponseDto> {
     const userId = req.user?.userId;
     if (!userId) {
@@ -104,7 +104,7 @@ export class StoreController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   async updateMyClubInfo(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: UpdateClubInfoRequestDto, // ใช้ DTO ของ club info แทน UpdateStoreDto
+    @Body() dto: UpdateClubInfoRequestDto, // ใช้ DTO ของ club info แทน UpdateDraftStoreDto
   ) {
     // console.log(dto)
     const nisitId = req.user?.nisitId;
