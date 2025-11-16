@@ -31,7 +31,7 @@ import type { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { CreateStoreRequestDto, CreateStoreResponseDto } from 'src/store/dto/create-store.dto';
 import { StoreResponseDto } from 'src/store/dto/store-response.dto';
-import { UpdateDraftStoreRequestDto } from 'src/store/dto/update-store.dto';
+import { UpdateDraftStoreRequestDto, UpdateStoreRequestDto } from 'src/store/dto/update-store.dto';
 import { StoreService } from 'src/store/services/store.service';
 import { AccessTokenResponse } from 'google-auth-library/build/src/auth/oauth2client';
 import { user } from 'src/auth/entities/access-token.entity'
@@ -40,6 +40,7 @@ import { StoreType } from '@generated/prisma';
 import { UpdateClubInfoRequestDto } from 'src/store/dto/update-clubInfo.dto';
 import { CreateGoodDto, GoodsResponseDto, UpdateGoodDto } from 'src/store/dto/goods.dto';
 import { StorePendingValidationResponseDto } from 'src/store/dto/store-validation.dto';
+import { CreateClubInfoRequestDto } from '../dto/create-clubInfo.dto';
 
 type AuthenticatedRequest = Request & { user };
 
@@ -63,13 +64,66 @@ export class StoreController {
     @Req() req: AuthenticatedRequest,
     @Body() dto: UpdateClubInfoRequestDto, // ใช้ DTO ของ club info แทน UpdateDraftStoreRequestDto
   ) {
-    // console.log(dto)
     const nisitId = req.user?.nisitId;
     if (!nisitId) {
       throw new UnauthorizedException('Missing user context.');
     }
 
     return this.storeService.updateClubInfo(nisitId, dto);
+  }
+
+  @Post('mine/club-info')
+  @ApiOperation({ summary: 'Create club info for the authenticated user store.' })
+  @ApiOkResponse({ type: StoreResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid club info payload.' })
+  @ApiNotFoundResponse({ description: 'Store not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async createMyClubInfo(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateClubInfoRequestDto, // ใช้ DTO ของ club info แทน UpdateDraftStoreRequestDto
+  ) {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+
+    return this.storeService.createClubInfoFirstTime(nisitId, dto);;
+  }
+
+  @Get('mine/club-info')
+  @ApiOperation({ summary: 'Get club info for the authenticated user store.' })
+  // @ApiOkResponse({ type: StoreResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid club info payload.' })
+  @ApiNotFoundResponse({ description: 'Store not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async getMyClubInfo(
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+
+    return this.storeService.getClubInfo(nisitId);
+  }
+
+  @Delete('mine/members/me')
+  @ApiOperation({ summary: 'Leave the current store as the authenticated member.' })
+  @ApiOkResponse({
+    type: StoreResponseDto,
+    description: 'Updated store after the member has left.',
+  })
+  @ApiBadRequestResponse({
+    description: 'User is not a member of any store or cannot leave the store.',
+  })
+  @ApiNotFoundResponse({ description: 'Store not found.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  async leaveMyStore(@Req() req: AuthenticatedRequest): Promise<void> {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+    await this.storeService.leaveMyStore(nisitId);
   }
 
   @Patch('mine')
@@ -80,15 +134,15 @@ export class StoreController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   async updateMyStore(
     @Req() req: AuthenticatedRequest,
-    @Body() dto: UpdateClubInfoRequestDto, // ใช้ DTO ของ club info แทน UpdateDraftStoreRequestDto
-  ) {
+    @Body() dto: UpdateStoreRequestDto,
+  ): Promise<StoreResponseDto> {
     // console.log(dto)
     const nisitId = req.user?.nisitId;
     if (!nisitId) {
       throw new UnauthorizedException('Missing user context.');
     }
 
-    return this.storeService.updateClubInfo(nisitId, dto);
+    return this.storeService.updateStore(nisitId, dto);
   }
 
   @Get('mine')
@@ -99,20 +153,12 @@ export class StoreController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   async getMyStore(
     @Req() req: AuthenticatedRequest,
-    @Query('include') include?: string
-  ) {
+  ): Promise<StoreResponseDto> {
     const nisitId = req.user?.nisitId;
     if (!nisitId) {
       throw new UnauthorizedException('Missing user context.');
     }
 
-    const store = await this.storeService.getStoreStatus(nisitId);
-    
-    const draftState = ['CreateStore', 'ClubInfo', 'StoreDetails', 'ProductDetails']
-    if (draftState.includes(store.state)) {
-      return this.storeService.getStoreDraft(store, nisitId)
-    }
-
-    return store
+    return this.storeService.getMyStore(nisitId);
   }
 }

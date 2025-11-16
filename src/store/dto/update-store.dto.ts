@@ -117,3 +117,43 @@ export class UpdateDraftStoreResponseDto {
   boothMediaId: string | null;
 }
 
+export class UpdateStoreRequestDto {
+  @ApiPropertyOptional({
+    description: 'Update the display name of the store.',
+    example: 'Kaset Fair Drinks',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  storeName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Complete list of store member emails (minimum 3).',
+    example: ['a@ku.th', 'b@ku.th', 'c@ku.th'],
+    isArray: true,
+    type: String,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(3)
+  @ArrayUnique((email: string) => (typeof email === 'string' ? email.toLowerCase() : email))
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? value
+          .map((entry) => (typeof entry === 'string' ? entry.trim() : entry))
+          .filter((entry) => entry !== '')
+      : value,
+  )
+  @IsEmail({}, { each: true })
+  memberEmails?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Media ID for the booth image.',
+    example: 'cmhuynglj0000dkp44jhs41kt',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  boothMediaId?: string | null;
+}
+

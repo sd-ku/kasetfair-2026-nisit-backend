@@ -89,25 +89,6 @@ export class StoreDraftController {
     return this.storeDraftService.updateMyDraftStore(nisitId, dto);
   }
 
-  @Patch('mine/draft/club-info')
-  @ApiOperation({ summary: 'Update club info for the authenticated user store.' })
-  @ApiOkResponse({ type: StoreResponseDto })
-  @ApiBadRequestResponse({ description: 'Invalid club info payload.' })
-  @ApiNotFoundResponse({ description: 'Store not found.' })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  async updateMyClubInfo(
-    @Req() req: AuthenticatedRequest,
-    @Body() dto: UpdateClubInfoRequestDto, // ใช้ DTO ของ club info แทน UpdateDraftStoreRequestDto
-  ) {
-    // console.log(dto)
-    const nisitId = req.user?.nisitId;
-    if (!nisitId) {
-      throw new UnauthorizedException('Missing user context.');
-    }
-
-    return this.storeDraftService.updateClubInfo(nisitId, dto);
-  }
-
   @Get('mine/draft')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Retrieve store details linked to the user.' })
@@ -130,7 +111,7 @@ export class StoreDraftController {
       return this.storeDraftService.getStoreDraft(store, nisitId)
     }
 
-    return store
+    return this.storeDraftService.getStoreDraft(store, nisitId)
   }
 
   @Get('mine/draft/commit')

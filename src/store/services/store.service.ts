@@ -14,7 +14,7 @@ import {
   StoreState,
   StoreType,
 } from '@generated/prisma';
-import { UpdateDraftStoreRequestDto } from '../dto/update-store.dto';
+import { UpdateDraftStoreRequestDto, UpdateDraftStoreResponseDto, UpdateStoreRequestDto } from '../dto/update-store.dto';
 import { StoreResponseDto } from '../dto/store-response.dto';
 import { StoreRepository } from '../repositories/store.repository';
 import { StoreStatusResponseDto } from '../dto/store-state.dto'
@@ -22,6 +22,7 @@ import { StoreMemberStatus } from '@generated/prisma'
 import { NisitService } from 'src/nisit/nisit.service';
 import { UpdateClubInfoRequestDto } from '../dto/update-clubInfo.dto';
 import { StorePendingValidationResponseDto, StoreValidationChecklistItemDto } from '../dto/store-validation.dto';
+import { CreateClubInfoRequestDto } from '../dto/create-clubInfo.dto';
 
 // สมมติใช้ StoreState.Pending เป็นสถานะ "ส่งตรวจแล้ว"
 export const READY_FOR_PENDING_STATES: StoreState[] = [StoreState.ProductDetails];
@@ -55,14 +56,6 @@ export class StoreService {
       throw new BadRequestException('Not a club store.');
     }
 
-    // const isMember = store.members.some((m) => m.nisitId === actorNisitId);
-    // if (!isMember) {
-    //   throw new ForbiddenException('Not your store.');
-    // }
-
-    // 2) หา Nisit จาก leaderEmail (ถ้ามีในระบบ)
-    // const nisit = await this.repo.findNisitByNisitId(dto.leaderId);
-
     const payload = {
       clubName: dto.clubName,
       clubApplicationMediaId: dto.clubApplicationMediaId,
@@ -72,7 +65,6 @@ export class StoreService {
       leaderPhone: dto.leaderPhone,
       leaderNisitId: dto.leaderNisitId,
     };
-
 
     // 3) ทำงานใน transaction ผ่าน prisma client จาก repo
     return this.repo.client.$transaction(async (tx) => {
@@ -107,15 +99,13 @@ export class StoreService {
         "clubApplicationMediaId",
       ] as (keyof typeof updated.clubInfo)[]);
 
-      // console.log(complete)
-
       // ขยับ state เฉพาะกรณี:
       // - เดิมอยู่ CreateStore
       // - และ club info ครบตามเกณฑ์
       if (updated.state === StoreState.ClubInfo && complete) {
         updated = await tx.store.update({
           where: { id: store.id },
-          data: { state: StoreState.StoreDetails },
+          data: { state: StoreState.CreateStore },
           include: { clubInfo: true },
         });
       }
@@ -130,9 +120,227 @@ export class StoreService {
     });
   }
 
-  // async updateBoothLayoutMediaId() {
+  async createClubInfoFirstTime(
+    actorNisitId: string,
+    dto: CreateClubInfoRequestDto,
+  ) {
+    // กันเคสมี store อยู่แล้ว
+    const existing = await this.repo.findStoreByNisitId(actorNisitId);
+    if (existing) {
+      throw new BadRequestException('You already have a store.');
+    }
 
-  // }
+    const payload = {
+      clubName: dto.clubName,
+      clubApplicationMediaId: dto.clubApplicationMediaId,
+      leaderFirstName: dto.leaderFirstName,
+      leaderLastName: dto.leaderLastName,
+      leaderEmail: dto.leaderEmail?.toLowerCase(),
+      leaderPhone: dto.leaderPhone,
+      leaderNisitId: dto.leaderNisitId,
+    };
+
+    return this.repo.client.$transaction(async (tx) => {
+      // ให้ repo จัดการสร้าง store + clubInfo ให้เลย
+      const { store, clubInfo } = await this.repo.createClubStoreWithInfo(
+        tx,
+        actorNisitId,
+        payload,
+      );
+
+      // เช็คว่า club info ครบไหม
+      const complete = this.isObjectComplete(clubInfo, [
+        'clubName',
+        'leaderFirstName',
+        'leaderLastName',
+        'leaderEmail',
+        'leaderPhone',
+        'leaderNisitId',
+        'clubApplicationMediaId',
+      ] as (keyof typeof clubInfo)[]);
+      
+      let finalStore = store
+      if (store.state === StoreState.ClubInfo && complete) {
+        finalStore = await tx.store.update({
+          where: { id: store.id },
+          data: { state: StoreState.CreateStore },
+          include: { clubInfo: true },
+        });
+      }
+
+      return finalStore;
+    });
+  }
+
+  async getClubInfo(
+    nisitId: string
+  ) {
+    const store = await this.repo.findStoreByNisitId(nisitId);
+    if (!store) {
+      throw new BadRequestException('Store Not Found.');
+    }
+
+    const allInfo = await this.repo.findStoreWithMembersAndClub(store.id)
+
+    return allInfo?.clubInfo
+  }
+
+  async leaveMyStore(nisitId: string): Promise<void> {
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+
+    const nisit = await this.repo.findNisitByNisitId(nisitId);
+    if (!nisit?.storeId) {
+      throw new BadRequestException('You are not a member of any store.');
+    }
+    await this.repo.client.$transaction(async (tx) => {
+      // ตัดความสัมพันธ์ออก
+      await tx.nisit.update({
+        where: { nisitId: nisit.nisitId },
+        data: { storeId: null },
+      });
+    });
+  }
+
+  async getMyStore(nisitId: string): Promise<StoreResponseDto> {
+    const storeId = await this.ensureStoreIdForNisit(nisitId);
+    const store = await this.repo.client.store.findUnique({
+      where: { id: storeId },
+      include: {
+        members: { select: { email: true } },
+        memberAttemptEmails: {
+          select: { email: true, status: true },
+          orderBy: { email: 'asc' },
+        },
+      },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found.');
+    }
+
+    return {
+      id: store.id,
+      storeName: store.storeName,
+      boothNumber: store.boothNumber ?? null,
+      type: store.type,
+      state: store.state,
+      members: this.mergeStoreMembers(
+        store.members ?? [],
+        store.memberAttemptEmails ?? [],
+      ),
+      boothLayoutMediaId: store.boothMediaId ?? null,
+      createdAt: store.createdAt,
+      updatedAt: store.updatedAt,
+    };
+  }
+
+  async updateStore(nisitId: string, dto: UpdateStoreRequestDto): Promise<StoreResponseDto> {
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+
+    const storeId = await this.ensureStoreIdForNisit(nisitId);
+    const store = await this.repo.findStoreById(storeId);
+    if (!store) {
+      throw new NotFoundException('Store not found.');
+    }
+
+    const updateData = this.buildUpdateData(dto);
+    const shouldUpdateMembers = Array.isArray(dto.memberEmails);
+    let normalizedMemberEmails: string[] = [];
+    let missingEmails: string[] = [];
+    let foundMembers: Awaited<ReturnType<typeof this.repo.findNisitsByGmails>> = [];
+
+    if (shouldUpdateMembers) {
+      const actor = await this.repo.findNisitByNisitId(nisitId);
+      if (!actor?.email) {
+        throw new UnauthorizedException('Nisit profile required before accessing store data.');
+      }
+
+      normalizedMemberEmails = this.normalizeEmailsList(dto.memberEmails ?? []);
+      normalizedMemberEmails = this.ensureEmailIncluded(normalizedMemberEmails, actor.email);
+
+      if (normalizedMemberEmails.length < 3) {
+        throw new BadRequestException('At least 3 member emails are required.');
+      }
+
+      foundMembers = await this.repo.findNisitsByGmails(normalizedMemberEmails);
+      const conflicts = foundMembers.filter(
+        (member) => member.storeId && member.storeId !== storeId,
+      );
+
+      if (conflicts.length) {
+        const conflictEmails = conflicts
+          .map((member) => member.email ?? member.nisitId)
+          .filter(Boolean)
+          .join(', ');
+        throw new ConflictException(
+          `Members already assigned to another store: ${conflictEmails}`,
+        );
+      }
+
+      const existingEmails = new Set(
+        foundMembers
+          .map((member) => member.email?.trim().toLowerCase())
+          .filter((email): email is string => Boolean(email)),
+      );
+      missingEmails = normalizedMemberEmails.filter((email) => !existingEmails.has(email));
+    }
+
+    if (!shouldUpdateMembers && Object.keys(updateData).length === 0) {
+      throw new BadRequestException('No fields provided to update.');
+    }
+
+    try {
+      const updatedStore = await this.repo.client.$transaction(async (tx) => {
+        if (Object.keys(updateData).length) {
+          await tx.store.update({ where: { id: storeId }, data: updateData });
+        }
+
+        if (shouldUpdateMembers) {
+          await this.syncMembersAndAttemptsTx(tx, {
+            storeId,
+            foundMembers,
+            missingEmails,
+          });
+        }
+
+        return tx.store.findUnique({
+          where: { id: storeId },
+          include: {
+            members: { select: { email: true } },
+            memberAttemptEmails: {
+              select: { email: true, status: true },
+              orderBy: { email: 'asc' },
+            },
+          },
+        });
+      });
+
+      if (!updatedStore) {
+        throw new NotFoundException('Store not found after update.');
+      }
+
+      return {
+        id: updatedStore.id,
+        storeName: updatedStore.storeName,
+        boothNumber: updatedStore.boothNumber ?? null,
+        type: updatedStore.type,
+        state: updatedStore.state,
+        members: this.mergeStoreMembers(
+          updatedStore.members ?? [],
+          updatedStore.memberAttemptEmails ?? [],
+        ),
+        boothLayoutMediaId: updatedStore.boothMediaId ?? null,
+        createdAt: updatedStore.createdAt,
+        updatedAt: updatedStore.updatedAt,
+      };
+    } catch (error) {
+      throw this.transformPrismaError(error);
+    }
+  }
 
   async getStoreStatus(nisitId: string): Promise<StoreStatusResponseDto> {
     const store = await this.repo.findStoreByNisitId(nisitId);
@@ -338,7 +546,7 @@ export class StoreService {
   protected buildUpdateData(dto: UpdateDraftStoreRequestDto): Prisma.StoreUpdateInput {
     const data: Prisma.StoreUpdateInput = {};
     if (dto.storeName !== undefined) data.storeName = dto.storeName.trim();
-    if (dto.type !== undefined) data.type = dto.type;
+    // if (dto.type !== undefined) data.type = dto.type;
     if (dto.boothMediaId !== undefined) {
       const boothMediaId =
         typeof dto.boothMediaId === 'string' ? dto.boothMediaId.trim() : null;
@@ -349,17 +557,114 @@ export class StoreService {
     return data;
   }
 
-  protected mapToResponse(store: Store): StoreResponseDto {
-    return {
-      id: store.id,
-      storeName: store.storeName,
-      boothNumber: store.boothNumber ?? null,
-      type: store.type,
-      state: store.state,
-      createdAt: store.createdAt,
-      updatedAt: store.updatedAt,
-    };
+  protected normalizeEmailsList(values: string[]): string[] {
+    return Array.from(
+      new Set(
+        (values ?? [])
+          .map((email) => (typeof email === 'string' ? email.trim().toLowerCase() : ''))
+          .filter((email) => email.length > 0),
+      ),
+    );
   }
+
+  protected ensureEmailIncluded(existing: string[], actorEmail: string): string[] {
+    const normalized = actorEmail.trim().toLowerCase();
+    if (!normalized) {
+      return existing;
+    }
+    if (existing.includes(normalized)) {
+      return existing;
+    }
+    return [...existing, normalized];
+  }
+
+  protected async syncMembersAndAttemptsTx(
+    tx: Prisma.TransactionClient,
+    params: {
+      storeId: number;
+      foundMembers: Array<{ nisitId: string; email: string | null; storeId: number | null }>;
+      missingEmails: string[];
+    },
+  ): Promise<void> {
+    const desiredMemberIds = new Set(params.foundMembers.map((member) => member.nisitId));
+    const currentMembers = await tx.nisit.findMany({
+      where: { storeId: params.storeId },
+      select: { nisitId: true },
+    });
+
+    const membersToRemove = currentMembers
+      .filter((member) => !desiredMemberIds.has(member.nisitId))
+      .map((member) => member.nisitId);
+
+    if (membersToRemove.length) {
+      await tx.nisit.updateMany({
+        where: { nisitId: { in: membersToRemove } },
+        data: { storeId: null },
+      });
+    }
+
+    const membersToAttach = params.foundMembers
+      .filter((member) => member.storeId !== params.storeId)
+      .map((member) => member.nisitId);
+
+    if (membersToAttach.length) {
+      await tx.nisit.updateMany({
+        where: { nisitId: { in: membersToAttach } },
+        data: { storeId: params.storeId },
+      });
+    }
+
+    const attempts = await tx.storeMemberAttemptEmail.findMany({
+      where: { storeId: params.storeId },
+      select: { id: true, email: true },
+    });
+
+    const missingSet = new Set(
+      params.missingEmails.map((email) => email.trim().toLowerCase()).filter((email) => email.length > 0),
+    );
+
+    const attemptsToDelete = attempts
+      .filter((attempt) => {
+        const normalized = attempt.email?.trim().toLowerCase();
+        return !normalized || !missingSet.has(normalized);
+      })
+      .map((attempt) => attempt.id);
+
+    if (attemptsToDelete.length) {
+      await tx.storeMemberAttemptEmail.deleteMany({
+        where: { id: { in: attemptsToDelete } },
+      });
+    }
+
+    const existingAttemptEmails = new Set(
+      attempts.map((attempt) => attempt.email?.trim().toLowerCase()).filter((email) => email && email.length > 0) as string[],
+    );
+
+    const attemptsToCreate = params.missingEmails.filter((email) => !existingAttemptEmails.has(email));
+    if (attemptsToCreate.length) {
+      const now = new Date();
+      await tx.storeMemberAttemptEmail.createMany({
+        data: attemptsToCreate.map((email) => ({
+          storeId: params.storeId,
+          email,
+          status: StoreMemberStatus.NotFound,
+          invitedAt: now,
+        })),
+      });
+    }
+  }
+
+  // protected mapToResponse(store: Store): StoreResponseDto {
+  //   return {
+  //     id: store.id,
+  //     storeName: store.storeName,
+  //     boothNumber: store.boothNumber ?? null,
+  //     type: store.type,
+  //     state: store.state,
+  //     createdAt: store.createdAt,
+  //     updatedAt: store.updatedAt,
+  //   };
+  // }
 
   protected transformPrismaError(error: unknown): Error {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -376,6 +681,41 @@ export class StoreService {
     }
 
     return new Error('Unknown error');
+  }
+
+  private mergeStoreMembers(
+    members: Array<{ email: string | null }> = [],
+    attempts: Array<{ email: string | null; status: StoreMemberStatus }> = [],
+  ): StoreResponseDto['members'] {
+    const normalize = (value?: string | null) => {
+      if (!value) return null;
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed.toLowerCase() : null;
+    };
+
+    const result = new Map<string, StoreResponseDto['members'][number]>();
+
+    for (const attempt of attempts ?? []) {
+      const normalized = normalize(attempt.email);
+      if (!normalized) continue;
+      const original = attempt.email?.trim() ?? normalized;
+      result.set(normalized, {
+        email: original,
+        status: attempt.status,
+      });
+    }
+
+    for (const member of members ?? []) {
+      const normalized = normalize(member.email);
+      if (!normalized) continue;
+      const original = member.email?.trim() ?? normalized;
+      result.set(normalized, {
+        email: original,
+        status: StoreMemberStatus.Joined,
+      });
+    }
+
+    return Array.from(result.values()).sort((a, b) => a.email.localeCompare(b.email));
   }
 
   private normalizeNullableString(value?: string | null): string | null | undefined {

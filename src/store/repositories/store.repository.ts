@@ -6,24 +6,41 @@ import {
   Prisma,
   Store,
   Nisit,
+  StoreType,
+  StoreState,
 } from '@generated/prisma';
 
+// Payload สำหรับ clubInfo ที่ใช้ร่วมกันหลายฟังก์ชัน
+type ClubInfoPayload = {
+  clubName?: string | null;
+  clubApplicationMediaId?: string | null;
+  leaderFirstName?: string | null;
+  leaderLastName?: string | null;
+  leaderEmail?: string | null;
+  leaderPhone?: string | null;
+  leaderNisitId?: string | null;
+};
 
 @Injectable()
 export class StoreRepository {
   constructor(protected readonly prisma: PrismaService) {}
-  
+
   get client() {
     return this.prisma;
   }
 
-  // ---------- Nisit / Identity ----------
+  // ==============================
+  // Nisit / Identity
+  // ==============================
 
   async findNisitByNisitId(nisitId: string) {
     return this.prisma.nisit.findUnique({ where: { nisitId } });
   }
 
-  async findIdentityWithInfoByProviderSub(provider: string, providerSub: string) {
+  async findIdentityWithInfoByProviderSub(
+    provider: string,
+    providerSub: string,
+  ) {
     return this.prisma.userIdentity.findUnique({
       where: { provider_providerSub: { provider, providerSub } },
       include: { info: true }, // info = Nisit
@@ -32,12 +49,21 @@ export class StoreRepository {
 
   async findNisitsByGmails(gmails: string[]) {
     return this.prisma.nisit.findMany({
-      where: { email: { in: gmails } }, // <-- ปรับเป็น email ถ้าคอลัมน์ชื่อ email
+      where: { email: { in: gmails.map((g) => g.toLowerCase()) } },
       select: { nisitId: true, email: true, storeId: true },
     });
   }
 
-  // ---------- Store CRUD ----------
+  async findNisitByEmail(email: string) {
+    return this.prisma.nisit.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+  }
+
+  // ==============================
+  // Store CRUD / Query
+  // ==============================
+
   async createStore(data: Prisma.StoreCreateInput) {
     return this.prisma.store.create({ data });
   }
@@ -55,17 +81,18 @@ export class StoreRepository {
       where: { nisitId },
       select: {
         store: {
-          select: { 
+          select: {
             id: true,
             storeName: true,
             boothNumber: true,
             type: true,
-            state: true
-          }
-        }
-      }
+            state: true,
+          },
+        },
+      },
     });
-    return row?.store ?? null;  // ← คืนแค่ store
+
+    return row?.store ?? null;
   }
 
   async findMemberEmailsByStoreId(storeId: number) {
@@ -78,66 +105,34 @@ export class StoreRepository {
           orderBy: { email: 'asc' },
         },
       },
-    })
+    });
 
-    if (!row) return null
-    
-    return row
+    if (!row) return null;
+    return row;
   }
-
-
 
   async findMemberNisitIdsByStoreId(storeId: number) {
-
     const row = await this.prisma.store.findUnique({
-
       where: { id: storeId },
-
       select: {
-
         members: { select: { nisitId: true } },
-
       },
+    });
 
-    })
-
-
-
-    if (!row) return null
-
-
-
-    return row.members.map(m => m.nisitId);
-
+    if (!row) return null;
+    return row.members.map((m) => m.nisitId);
   }
-
-
 
   async findBoothMediaIdByStoreId(storeId: number) {
-
-    const boothMediaId = await this.prisma.store.findUnique({
-
+    const row = await this.prisma.store.findUnique({
       where: { id: storeId },
-
       select: {
+        boothMediaId: true,
+      },
+    });
 
-        boothMediaId: true
-
-      }
-
-    })
-
-
-
-    if (!boothMediaId) return null;
-
-
-
-    return boothMediaId.boothMediaId
-
+    return row?.boothMediaId ?? null;
   }
-
-
 
   async findStoreWithValidation(storeId: number) {
     return this.prisma.store.findUnique({
@@ -150,344 +145,172 @@ export class StoreRepository {
     });
   }
 
-
-  // ---------- Club -------------
-
-
+  // ==============================
+  // Club / ClubInfo
+  // ==============================
 
   async findStoreWithMembersAndClub(storeId: number) {
-
     return this.prisma.store.findUnique({
-
       where: { id: storeId },
-
       include: {
-
         members: true,
-
         clubInfo: true,
-
       },
-
     });
-
   }
-
-
-
-  async findNisitByEmail(email: string) {
-
-    return this.prisma.nisit.findUnique({
-
-      where: { email: email.toLowerCase() },
-
-    });
-
-  }
-
-
 
   async createClubInfoForStore(
-
     tx: Prisma.TransactionClient,
-
     storeId: number,
-
-    data: {
-
-      clubName?: string;
-
-      clubApplicationMediaId?: string;
-
-      leaderFirstName?: string,
-
-      leaderLastName?: string,
-
-      leaderEmail?: string;
-
-      leaderPhone?: string;
-
-      leaderNisitId?: string;
-
-    },
-
+    data: ClubInfoPayload,
   ) {
-
     return tx.clubInfo.create({
-
       data: {
-
         storeId,
-
-        clubName: data.clubName,
-
-        clubApplicationMediaId: data.clubApplicationMediaId,
-
-        leaderFirstName: data.leaderFirstName,
-
-        leaderLastName: data.leaderLastName,
-
-        leaderEmail: data.leaderEmail,
-
-        leaderPhone: data.leaderPhone,
-
-        leaderNisitId: data.leaderNisitId,
-
+        clubName: data.clubName ?? undefined,
+        clubApplicationMediaId: data.clubApplicationMediaId ?? undefined,
+        leaderFirstName: data.leaderFirstName ?? undefined,
+        leaderLastName: data.leaderLastName ?? undefined,
+        leaderEmail: data.leaderEmail ?? undefined,
+        leaderPhone: data.leaderPhone ?? undefined,
+        leaderNisitId: data.leaderNisitId ?? undefined,
       },
-
     });
-
   }
-
-
 
   async updateClubInfo(
-
     tx: Prisma.TransactionClient,
-
     clubInfoId: string,
-
-    data: {
-
-      clubName?: string;
-
-      clubApplicationMediaId?: string;
-
-      leaderFirstName?: string,
-
-      leaderLastName?: string,
-
-      leaderEmail?: string;
-
-      leaderPhone?: string;
-
-      leaderNisitId?: string;
-
-    },
-
+    data: ClubInfoPayload,
   ) {
-
     return tx.clubInfo.update({
-
       where: { id: clubInfoId },
-
       data: {
-
-        clubName: data.clubName,
-
-        clubApplicationMediaId: data.clubApplicationMediaId,
-
-        leaderFirstName: data.leaderFirstName,
-
-        leaderLastName: data.leaderLastName,
-
-        leaderEmail: data.leaderEmail,
-
-        leaderPhone: data.leaderPhone,
-
-        leaderNisitId: data.leaderNisitId,
-
+        clubName: data.clubName ?? undefined,
+        clubApplicationMediaId: data.clubApplicationMediaId ?? undefined,
+        leaderFirstName: data.leaderFirstName ?? undefined,
+        leaderLastName: data.leaderLastName ?? undefined,
+        leaderEmail: data.leaderEmail ?? undefined,
+        leaderPhone: data.leaderPhone ?? undefined,
+        leaderNisitId: data.leaderNisitId ?? undefined,
       },
-
     });
-
   }
-
-  
 
   async findStoreWithClubInfoTx(
-
     tx: Prisma.TransactionClient,
-
     storeId: number,
-
   ) {
-
     return tx.store.findUnique({
-
       where: { id: storeId },
-
-      include: {
-
-        clubInfo: true,
-
-      },
-
+      include: { clubInfo: true },
     });
-
   }
-
-
 
   async findClubInfoByStoreId(storeId: number) {
-
     return this.prisma.store.findUnique({
-
       where: { id: storeId },
-
-      include: {
-
-        clubInfo: true,
-
-      },
-
-    })
-
+      include: { clubInfo: true },
+    });
   }
 
-
-
-  // ---------- Nisit <-> Store linking ----------
-
-  async linkNisitAsLeader(nisitId: string, storeId: number, storeRole: any) {
-
-    return this.prisma.nisit.update({
-
-      where: { nisitId },
-
-      data: { storeId },
-
+  async createClubStoreWithInfo(
+    tx: Prisma.TransactionClient,
+    actorNisitId: string,
+    payload: ClubInfoPayload,
+  ) {
+    const store = await tx.store.create({
+      data: {
+        storeName: payload.clubName ?? 'ชมรมยังไม่ตั้งชื่อ',
+        type: StoreType.Club,
+        state: StoreState.ClubInfo,
+        members: {
+          connect: [{ nisitId: actorNisitId }],
+        },
+      },
     });
 
+  const clubInfo = await tx.clubInfo.create({
+    data: {
+      clubName: payload.clubName ?? null,
+      leaderFirstName: payload.leaderFirstName ?? null,
+      leaderLastName: payload.leaderLastName ?? null,
+      leaderEmail: payload.leaderEmail ?? null,
+      leaderPhone: payload.leaderPhone ?? null,
+      leaderNisitId: payload.leaderNisitId ?? null,
+      store: {
+        connect: { id: store.id },
+      },
+      ...(payload.clubApplicationMediaId && {
+        clubApplicationMedia: {
+          connect: { id: payload.clubApplicationMediaId },
+        },
+      }),
+    },
+  });
+
+    return { store, clubInfo };
   }
 
+  // ==============================
+  // Nisit <-> Store linking
+  // ==============================
 
+  async linkNisitAsLeader(
+    nisitId: string,
+    storeId: number,
+    storeRole: any, // TODO: ถ้ามี role column ค่อย map ลงไป
+  ) {
+    return this.prisma.nisit.update({
+      where: { nisitId },
+      data: { storeId },
+    });
+  }
 
   async createWithLeaderAndMembers(
-
     storeData: Prisma.StoreCreateInput,
-
     leaderNisitId: string,
-
     memberNisitIds: string[],
-
   ): Promise<Store> {
-
     return this.prisma.$transaction(async (tx) => {
-
       const created = await tx.store.create({ data: storeData });
 
-
-
       // Leader
-
       await tx.nisit.update({
-
         where: { nisitId: leaderNisitId },
-
         data: { storeId: created.id },
-
       });
 
-
-
       // Members
-
       if (memberNisitIds.length) {
-
         await Promise.all(
-
           memberNisitIds.map((id) =>
-
             tx.nisit.update({
-
               where: { nisitId: id },
-
               data: { storeId: created.id },
-
             }),
-
           ),
-
         );
-
       }
 
-
-
       return created;
-
     });
-
   }
 
-
-
-  // async createWithdMembers(
-
-  //   storeData: Prisma.StoreCreateInput,
-
-  //   memberNisitIds: string[],
-
-  // ): Promise<Store> {
-
-  //   return this.prisma.$transaction(async (tx) => {
-
-  //     const created = await tx.store.create({ data: storeData });
-
-
-
-  //     // Members
-
-  //     if (memberNisitIds.length) {
-
-  //       await Promise.all(
-
-  //         memberNisitIds.map((id) =>
-
-  //           tx.nisit.update({
-
-  //             where: { nisitId: id },
-
-  //             data: { storeId: created.id },
-
-  //           }),
-
-  //         ),
-
-  //       );
-
-  //     }
-
-
-
-  //     return created;
-
-  //   });
-
-  // }
-
-
-
-  // ---------- Transaction helpers ----------
-
   async createStoreAndLinkLeader(
-
     data: Prisma.StoreCreateInput,
-
     nisitId: string,
-
-    storeRole: any
-
+    storeRole: any, // ไว้เผื่อในอนาคต
   ): Promise<Store> {
-
     return this.prisma.$transaction(async (tx) => {
-
       const created = await tx.store.create({ data });
 
       await tx.nisit.update({
-
         where: { nisitId },
-
         data: { storeId: created.id },
-
       });
 
       return created;
-
     });
-
   }
-
 }
-

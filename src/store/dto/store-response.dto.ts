@@ -1,27 +1,40 @@
 import { StoreState, StoreType } from '@generated/prisma';
 import { ApiProperty } from '@nestjs/swagger';
 
+export class StoreMemberDto {
+  @ApiProperty({ example: "aaa@ku.th" })
+  email: string;
+
+  @ApiProperty({ example: "approved" })
+  status: string;
+}
+
 export class StoreResponseDto {
-  @ApiProperty({ example: 101 })
+  @ApiProperty()
   id: number;
 
-  @ApiProperty({ example: 'Kaset Fair Goodies' })
+  @ApiProperty()
   storeName: string;
 
-  @ApiProperty({ example: 'B12', nullable: true })
+  @ApiProperty()
   boothNumber: string | null;
 
-  @ApiProperty({ enum: StoreType, example: StoreType.Nisit })
+  @ApiProperty({ enum: StoreType })
   type: StoreType;
 
-  // @ApiProperty({ enum: StoreState, example: StoreState.StoreDetails })
   @ApiProperty({ enum: StoreState })
   state: StoreState;
 
-  @ApiProperty({ example: '2025-11-04T12:34:56.789Z' })
+  @ApiProperty({ type: [StoreMemberDto] })
+  members: StoreMemberDto[];
+
+  @ApiProperty()
+  boothLayoutMediaId: string | null;
+
+  @ApiProperty()
   createdAt: Date;
 
-  @ApiProperty({ example: '2025-11-04T12:34:56.789Z' })
+  @ApiProperty()
   updatedAt: Date;
 }
 

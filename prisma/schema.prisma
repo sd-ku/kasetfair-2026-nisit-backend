@@ -118,7 +118,7 @@ model ClubInfo {
   id                  String     @id @default(cuid())
   clubName            String?
   clubApplicationMediaId  String?     @unique
-  clubApplicationMedia    Media?     @relation("ClubApplicationMedia", fields: [clubApplicationMediaId], references: [id])
+  clubApplicationMedia    Media?     @relation("ClubApplicationMedia", fields: [clubApplicationMediaId], references: [id], onDelete: SetNull)
 
   // หนึ่ง ClubInfo ผูกกับ Store เดียว บังคับต้องมี
   storeId         Int        @unique

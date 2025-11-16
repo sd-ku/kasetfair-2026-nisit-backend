@@ -207,114 +207,94 @@ export class StoreDraftService extends StoreService {
   //   }
   // }
 
-  private normalizeEmailsList(values: string[]): string[] {
-    return Array.from(
-      new Set(
-        (values ?? [])
-          .map((email) => (typeof email === 'string' ? email.trim().toLowerCase() : ''))
-          .filter((email) => email.length > 0),
-      ),
-    );
-  }
-
-  private ensureEmailIncluded(existing: string[], actorEmail: string): string[] {
-    const normalized = actorEmail.trim().toLowerCase();
-    if (!normalized) {
-      return existing;
-    }
-    if (existing.includes(normalized)) {
-      return existing;
-    }
-    return [...existing, normalized];
-  }
-
   private resolveStateAfterMemberUpdate(store: Store, noMissingMembers: boolean): StoreState | undefined {
     if (!noMissingMembers) {
       return store.state === StoreState.CreateStore ? StoreState.CreateStore : undefined;
     }
 
     if (store.state === StoreState.CreateStore) {
-      return store.type === StoreType.Club ? StoreState.ClubInfo : StoreState.StoreDetails;
+      // return store.type === StoreType.Club ? StoreState.ClubInfo : StoreState.StoreDetails;
+      return StoreState.StoreDetails;
     }
 
     return undefined;
   }
 
-  private async syncMembersAndAttemptsTx(
-    tx: Prisma.TransactionClient,
-    params: {
-      storeId: number;
-      foundMembers: Array<{ nisitId: string; email: string | null; storeId: number | null }>;
-      missingEmails: string[];
-    },
-  ): Promise<void> {
-    const desiredMemberIds = new Set(params.foundMembers.map((member) => member.nisitId));
-    const currentMembers = await tx.nisit.findMany({
-      where: { storeId: params.storeId },
-      select: { nisitId: true },
-    });
+  // private async syncMembersAndAttemptsTx(
+  //   tx: Prisma.TransactionClient,
+  //   params: {
+  //     storeId: number;
+  //     foundMembers: Array<{ nisitId: string; email: string | null; storeId: number | null }>;
+  //     missingEmails: string[];
+  //   },
+  // ): Promise<void> {
+  //   const desiredMemberIds = new Set(params.foundMembers.map((member) => member.nisitId));
+  //   const currentMembers = await tx.nisit.findMany({
+  //     where: { storeId: params.storeId },
+  //     select: { nisitId: true },
+  //   });
 
-    const membersToRemove = currentMembers
-      .filter((member) => !desiredMemberIds.has(member.nisitId))
-      .map((member) => member.nisitId);
+  //   const membersToRemove = currentMembers
+  //     .filter((member) => !desiredMemberIds.has(member.nisitId))
+  //     .map((member) => member.nisitId);
 
-    if (membersToRemove.length) {
-      await tx.nisit.updateMany({
-        where: { nisitId: { in: membersToRemove } },
-        data: { storeId: null },
-      });
-    }
+  //   if (membersToRemove.length) {
+  //     await tx.nisit.updateMany({
+  //       where: { nisitId: { in: membersToRemove } },
+  //       data: { storeId: null },
+  //     });
+  //   }
 
-    const membersToAttach = params.foundMembers
-      .filter((member) => member.storeId !== params.storeId)
-      .map((member) => member.nisitId);
+  //   const membersToAttach = params.foundMembers
+  //     .filter((member) => member.storeId !== params.storeId)
+  //     .map((member) => member.nisitId);
 
-    if (membersToAttach.length) {
-      await tx.nisit.updateMany({
-        where: { nisitId: { in: membersToAttach } },
-        data: { storeId: params.storeId },
-      });
-    }
+  //   if (membersToAttach.length) {
+  //     await tx.nisit.updateMany({
+  //       where: { nisitId: { in: membersToAttach } },
+  //       data: { storeId: params.storeId },
+  //     });
+  //   }
 
-    const attempts = await tx.storeMemberAttemptEmail.findMany({
-      where: { storeId: params.storeId },
-      select: { id: true, email: true },
-    });
+  //   const attempts = await tx.storeMemberAttemptEmail.findMany({
+  //     where: { storeId: params.storeId },
+  //     select: { id: true, email: true },
+  //   });
 
-    const missingSet = new Set(
-      params.missingEmails.map((email) => email.trim().toLowerCase()).filter((email) => email.length > 0),
-    );
+  //   const missingSet = new Set(
+  //     params.missingEmails.map((email) => email.trim().toLowerCase()).filter((email) => email.length > 0),
+  //   );
 
-    const attemptsToDelete = attempts
-      .filter((attempt) => {
-        const normalized = attempt.email?.trim().toLowerCase();
-        return !normalized || !missingSet.has(normalized);
-      })
-      .map((attempt) => attempt.id);
+  //   const attemptsToDelete = attempts
+  //     .filter((attempt) => {
+  //       const normalized = attempt.email?.trim().toLowerCase();
+  //       return !normalized || !missingSet.has(normalized);
+  //     })
+  //     .map((attempt) => attempt.id);
 
-    if (attemptsToDelete.length) {
-      await tx.storeMemberAttemptEmail.deleteMany({
-        where: { id: { in: attemptsToDelete } },
-      });
-    }
+  //   if (attemptsToDelete.length) {
+  //     await tx.storeMemberAttemptEmail.deleteMany({
+  //       where: { id: { in: attemptsToDelete } },
+  //     });
+  //   }
 
-    const existingAttemptEmails = new Set(
-      attempts.map((attempt) => attempt.email?.trim().toLowerCase()).filter((email) => email && email.length > 0) as string[],
-    );
+  //   const existingAttemptEmails = new Set(
+  //     attempts.map((attempt) => attempt.email?.trim().toLowerCase()).filter((email) => email && email.length > 0) as string[],
+  //   );
 
-    const attemptsToCreate = params.missingEmails.filter((email) => !existingAttemptEmails.has(email));
-    if (attemptsToCreate.length) {
-      const now = new Date();
-      await tx.storeMemberAttemptEmail.createMany({
-        data: attemptsToCreate.map((email) => ({
-          storeId: params.storeId,
-          email,
-          status: StoreMemberStatus.NotFound,
-          invitedAt: now,
-        })),
-      });
-    }
-  }
+  //   const attemptsToCreate = params.missingEmails.filter((email) => !existingAttemptEmails.has(email));
+  //   if (attemptsToCreate.length) {
+  //     const now = new Date();
+  //     await tx.storeMemberAttemptEmail.createMany({
+  //       data: attemptsToCreate.map((email) => ({
+  //         storeId: params.storeId,
+  //         email,
+  //         status: StoreMemberStatus.NotFound,
+  //         invitedAt: now,
+  //       })),
+  //     });
+  //   }
+  // }
 
   private async buildDraftUpdateResponse(storeId: number): Promise<UpdateDraftStoreResponseDto> {
     const store = await this.draftRepo.client.store.findUnique({

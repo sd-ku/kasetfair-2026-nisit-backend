@@ -150,7 +150,7 @@ export class AuthService {
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',               // ให้ path ตรงกับตัวเดิม
-      maxAge: 60 * 60 * 1000,  // 1h
+      maxAge: 60 * 60 * 1000 * 12,  // 8h
     });
 
 
