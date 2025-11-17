@@ -6,24 +6,46 @@
 } from '@nestjs/common';
 import { Nisit, Prisma } from '@generated/prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ConsentService } from 'src/consent/consent.service';
 import { CreateNisitRequestDto } from './dto/create-nisit.dto';
 import { UpdateNisitDto } from './dto/update-nisit.dto';
 import { NisitResponseDto } from './dto/nisit-response.dto';
 
 @Injectable()
 export class NisitService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly consentService: ConsentService,
+  ) {}
 
   async register(createDto: CreateNisitRequestDto): Promise<NisitResponseDto> {
-    
+    // บังคับให้ต้องยอมรับ consent ก่อน
+    if (!createDto.consentAccepted) {
+      throw new BadRequestException(
+        'You must accept the consent text before registration.',
+      );
+    }
+
     const data = this.buildCreateData(createDto);
-    // console.log(`data info res: ${data}`)
 
     try {
+      // 1) สร้างนิสิต
       const nisit = await this.prisma.nisit.create({ data });
-      console.log(`create info res: `)
-      console.log(nisit)
+
+      // 2) บันทึก consent ที่ยอมรับ
+      await this.consentService.recordNisitConsent({
+        // ใน schema ของนาย userConsent.nisitId = รหัสนิสิต
+        nisitId: nisit.nisitId,              // หรือ createDto.nisitId ก็ได้ถ้าตรงกัน
+        consentTextId: createDto.consentTextId,
+        // ตอนนี้ยังไม่ได้สนใจ ip/device ก็ใส่ null ไปก่อน
+        ipAddress: null,
+        userAgent: null,
+        deviceInfo: null,
+      });
+
+      // 3) ลิงก์ pending identities เหมือนเดิม
       await this.linkPendingIdentities(nisit.email, nisit.nisitId);
+
       return nisit;
     } catch (error) {
       throw this.transformPrismaError(error);

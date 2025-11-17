@@ -2,6 +2,7 @@
   IsString,
   IsEmail,
   IsOptional,
+  IsBoolean,
   Length,
   Matches,
 } from 'class-validator';
@@ -45,4 +46,21 @@ export class CreateNisitRequestDto {
   @IsOptional()
   @IsString()
   nisitCardMediaId?: string;
+
+  // ---------- เพิ่มส่วน consent ----------
+
+  @ApiProperty({
+    description:
+      'ID ของ consent_text ที่ผู้ใช้ยอมรับ (ต้องเป็น id จากตาราง consent_text)',
+    example: '7c86a0fe-8ac4-4a82-90ea-e387f9430df3',
+  })
+  @IsString()
+  consentTextId: string;
+
+  @ApiProperty({
+    description: 'ผู้ใช้ยืนยันว่าได้อ่านและยอมรับเงื่อนไขแล้ว (ต้องเป็น true เท่านั้น)',
+    example: true,
+  })
+  @IsBoolean()
+  consentAccepted: boolean;
 }

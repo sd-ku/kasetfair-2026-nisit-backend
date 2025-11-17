@@ -8,9 +8,10 @@ import { StoreDraftController } from './controllers/store.draft.controller';
 import { StoreRepository } from './repositories/store.repository';
 import { StoreDraftRepository } from './repositories/store.draft.repository';
 import { StoreGoodRepository } from './repositories/store.good.repository';
-import { NisitService } from 'src/nisit/nisit.service';
+import { NisitModule } from 'src/nisit/nisit.module';
 
 @Module({
+  imports: [NisitModule],
   controllers: [StoreController, GoodController, StoreDraftController],
   providers: [
     StoreService,
@@ -19,7 +20,6 @@ import { NisitService } from 'src/nisit/nisit.service';
     StoreRepository,
     StoreDraftRepository,
     StoreGoodRepository,
-    NisitService,
   ],
 })
 export class StoreModule {}

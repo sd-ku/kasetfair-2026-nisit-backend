@@ -7,9 +7,18 @@ import { NisitModule } from './nisit/nisit.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { StoreModule } from './store/store.module';
 import { MediaModule } from './media/media.module';
+import { ConsentModule } from './consent/consent.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), AuthModule, NisitModule, PrismaModule, StoreModule, MediaModule],
+  imports: [
+    ConfigModule.forRoot(),
+    AuthModule,
+    NisitModule,
+    PrismaModule,
+    StoreModule,
+    MediaModule,
+    ConsentModule
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
