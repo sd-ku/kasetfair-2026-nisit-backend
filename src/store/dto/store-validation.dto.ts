@@ -39,6 +39,12 @@ export class StorePendingValidationResponseDto {
   state: StoreState;
 
   @ApiProperty({
+    description: 'Nisit ID of the store admin.',
+    example: '6400000001',
+  })
+  storeAdminNisitId: string;
+
+  @ApiProperty({
     description: 'True when all checklist items pass validation.',
     example: false,
   })

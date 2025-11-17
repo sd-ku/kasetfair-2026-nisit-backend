@@ -76,6 +76,12 @@ export class StoreRepository {
     return this.prisma.store.findUnique({ where: { id: storeId } });
   }
 
+  async findStoreByAdminNisitId(nisitId: string) {
+    return this.prisma.store.findUnique({
+      where: { storeAdminNisitId: nisitId },
+    });
+  }
+
   async findStoreByNisitId(nisitId: string) {
     const row = await this.prisma.nisit.findUnique({
       where: { nisitId },
@@ -87,6 +93,7 @@ export class StoreRepository {
             boothNumber: true,
             type: true,
             state: true,
+            storeAdminNisitId: true,
           },
         },
       },
@@ -224,6 +231,9 @@ export class StoreRepository {
         storeName: payload.clubName ?? 'ชมรมยังไม่ตั้งชื่อ',
         type: StoreType.Club,
         state: StoreState.ClubInfo,
+        storeAdmin: {
+          connect: { nisitId: actorNisitId },
+        },
         members: {
           connect: [{ nisitId: actorNisitId }],
         },

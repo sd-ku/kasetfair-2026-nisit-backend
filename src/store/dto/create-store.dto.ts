@@ -68,6 +68,9 @@ export class CreateStoreResponseDto {
   @ApiProperty({ enum: StoreState, example: StoreState.StoreDetails, readOnly: true })
   state: StoreState;
 
+  @ApiProperty()
+  storeAdminNisitId: string;
+
   @ApiProperty({
     type: String,
     isArray: true,
@@ -100,6 +103,7 @@ export function mapToCreateResponse(store: Store, missingProfileEmails: string[]
     storeName: store.storeName,
     type: store.type,
     state: store.state,
+    storeAdminNisitId: store.storeAdminNisitId,
     missingProfileEmails: missingProfileEmails,
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,

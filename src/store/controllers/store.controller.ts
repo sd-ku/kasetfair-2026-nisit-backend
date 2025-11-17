@@ -4,42 +4,27 @@ import {
   Delete,
   Get,
   Header,
-  HttpCode,
-  NotFoundException,
   Patch,
   Post,
-  Query,
   Req,
   UnauthorizedException,
   UseGuards,
-  Param,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
-  ApiConflictResponse,
-  ApiCreatedResponse,
-  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
-import { CreateStoreRequestDto, CreateStoreResponseDto } from 'src/store/dto/create-store.dto';
 import { StoreResponseDto } from 'src/store/dto/store-response.dto';
-import { UpdateDraftStoreRequestDto, UpdateStoreRequestDto } from 'src/store/dto/update-store.dto';
+import { UpdateStoreRequestDto } from 'src/store/dto/update-store.dto';
 import { StoreService } from 'src/store/services/store.service';
-import { AccessTokenResponse } from 'google-auth-library/build/src/auth/oauth2client';
-import { user } from 'src/auth/entities/access-token.entity'
-import { StoreStatusResponseDto } from 'src/store/dto/store-state.dto';
-import { StoreType } from '@generated/prisma';
 import { UpdateClubInfoRequestDto } from 'src/store/dto/update-clubInfo.dto';
-import { CreateGoodDto, GoodsResponseDto, UpdateGoodDto } from 'src/store/dto/goods.dto';
-import { StorePendingValidationResponseDto } from 'src/store/dto/store-validation.dto';
 import { CreateClubInfoRequestDto } from '../dto/create-clubInfo.dto';
 
 type AuthenticatedRequest = Request & { user };

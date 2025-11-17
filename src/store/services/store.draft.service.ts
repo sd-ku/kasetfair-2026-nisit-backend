@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, ConflictException, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, UnauthorizedException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { StoreService, READY_FOR_PENDING_STATES, PENDING_STATE } from './store.service';
 import { StoreDraftRepository } from '../repositories/store.draft.repository';
 import { NisitService } from 'src/nisit/nisit.service';
@@ -25,6 +25,10 @@ export class StoreDraftService extends StoreService {
     const nisit = await this.draftRepo.findNisitByNisitId(nisitId);
     if (!nisit) throw new UnauthorizedException('Nisit profile required before accessing store data.');
     if (nisit.storeId) throw new ConflictException('You already have a store assigned.');
+    const existingOwnedStore = await this.draftRepo.findStoreByAdminNisitId(nisitId);
+    if (existingOwnedStore) {
+      throw new ConflictException('You are already a store admin.');
+    }
 
     const raw = [
       ...(createDto.memberGmails ?? []),
@@ -74,6 +78,9 @@ export class StoreDraftService extends StoreService {
       storeName: createDto.storeName.trim(),
       type: storeType,
       state,
+      storeAdmin: {
+        connect: { nisitId }, // 👈 ใช้ relation connect
+      },
       ...(storeType === StoreType.Club && {
         clubInfo: {
           create: {},
@@ -94,8 +101,11 @@ export class StoreDraftService extends StoreService {
     if (!nisitId) {
       throw new UnauthorizedException('Missing user context.');
     }
+    if ((dto as any)?.storeAdminNisitId !== undefined) {
+      throw new ForbiddenException('Store admin cannot be changed.');
+    }
 
-    const storeId = await this.ensureStoreIdForNisit(nisitId);
+    const storeId = await this.ensureStoreAndPermissionIdForNisit(nisitId);
     const store = await this.draftRepo.findStoreById(storeId);
     if (!store) {
       throw new NotFoundException('Store not found.');
@@ -181,31 +191,6 @@ export class StoreDraftService extends StoreService {
       throw this.transformPrismaError(error);
     }
   }
-
-  // async updateStoreInfo(userSub: string, updateDto: UpdateDraftStoreRequestDto): Promise<StoreResponseDto> {
-  //   const nisit = await this.resolveNisit(userSub);
-
-  //   if (!nisit.storeId) {
-  //     throw new NotFoundException('Store not found for current user.');
-  //   }
-
-  //   const data = this.buildUpdateData(updateDto);
-  //   if (Object.keys(data).length === 0) {
-  //     throw new BadRequestException('No fields provided to update.');
-  //   }
-
-  //   try {
-  //     let store = await this.draftRepo.updateStore(nisit.storeId, data);
-  //     if (store && updateDto.boothMediaId) {
-  //       store = await this.draftRepo.updateStore(nisit.storeId, {
-  //         state: StoreState.ProductDetails,
-  //       });
-  //     }
-  //     return this.mapToResponse(store);
-  //   } catch (error) {
-  //     throw this.transformPrismaError(error);
-  //   }
-  // }
 
   private resolveStateAfterMemberUpdate(store: Store, noMissingMembers: boolean): StoreState | undefined {
     if (!noMissingMembers) {
@@ -303,6 +288,7 @@ export class StoreDraftService extends StoreService {
         storeName: true,
         type: true,
         boothMediaId: true,
+        storeAdminNisitId: true,
         members: { select: { email: true } },
         memberAttemptEmails: { select: { email: true, status: true } },
       },
@@ -346,6 +332,7 @@ export class StoreDraftService extends StoreService {
       memberEmails: Array.from(memberMap.values()).sort(sorter),
       missingProfileEmails: Array.from(missingMap.values()).sort(sorter),
       boothMediaId: store.boothMediaId ?? null,
+      storeAdminNisitId: store.storeAdminNisitId,
     };
   }
 

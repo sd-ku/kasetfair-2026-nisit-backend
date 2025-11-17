@@ -29,9 +29,6 @@ import { CreateStoreRequestDto, CreateStoreResponseDto } from 'src/store/dto/cre
 import { StoreResponseDto } from 'src/store/dto/store-response.dto';
 import { UpdateDraftStoreRequestDto } from 'src/store/dto/update-store.dto';
 import { StoreDraftService } from 'src/store/services/store.draft.service';
-import { user } from 'src/auth/entities/access-token.entity';
-import { StoreStatusResponseDto } from 'src/store/dto/store-state.dto';
-import { UpdateClubInfoRequestDto } from 'src/store/dto/update-clubInfo.dto';
 import { StorePendingValidationResponseDto } from 'src/store/dto/store-validation.dto';
 
 type AuthenticatedRequest = Request & { user };

@@ -25,6 +25,9 @@ export class StoreResponseDto {
   @ApiProperty({ enum: StoreState })
   state: StoreState;
 
+  @ApiProperty()
+  storeAdminNisitId: string;
+
   @ApiProperty({ type: [StoreMemberDto] })
   members: StoreMemberDto[];
 

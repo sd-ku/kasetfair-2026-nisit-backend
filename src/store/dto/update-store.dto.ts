@@ -115,6 +115,13 @@ export class UpdateDraftStoreResponseDto {
   @IsOptional()
   @IsString()
   boothMediaId: string | null;
+
+  @ApiProperty({
+    description: 'Nisit ID of the store admin.',
+    example: '6400000001',
+    readOnly: true,
+  })
+  storeAdminNisitId: string;
 }
 
 export class UpdateStoreRequestDto {
@@ -156,4 +163,3 @@ export class UpdateStoreRequestDto {
   @IsString()
   boothMediaId?: string | null;
 }
-

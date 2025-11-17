@@ -52,6 +52,9 @@ export class StoreService {
     const store = await this.repo.findStoreWithMembersAndClub(storeId);
 
     if (!store) throw new NotFoundException('Store not found.');
+    if (store.storeAdminNisitId !== actorNisitId) {
+      throw new ForbiddenException('You do not have permission to manage this store.');
+    }
     if (store.type !== StoreType.Club) {
       throw new BadRequestException('Not a club store.');
     }
@@ -128,6 +131,10 @@ export class StoreService {
     const existing = await this.repo.findStoreByNisitId(actorNisitId);
     if (existing) {
       throw new BadRequestException('You already have a store.');
+    }
+    const storeOwnedByActor = await this.repo.findStoreByAdminNisitId(actorNisitId);
+    if (storeOwnedByActor) {
+      throw new ConflictException('You are already a store admin.');
     }
 
     const payload = {
@@ -226,6 +233,7 @@ export class StoreService {
       boothNumber: store.boothNumber ?? null,
       type: store.type,
       state: store.state,
+      storeAdminNisitId: store.storeAdminNisitId,
       members: this.mergeStoreMembers(
         store.members ?? [],
         store.memberAttemptEmails ?? [],
@@ -240,8 +248,11 @@ export class StoreService {
     if (!nisitId) {
       throw new UnauthorizedException('Missing user context.');
     }
+    if ((dto as any)?.storeAdminNisitId !== undefined) {
+      throw new ForbiddenException('Store admin cannot be changed.');
+    }
 
-    const storeId = await this.ensureStoreIdForNisit(nisitId);
+    const storeId = await this.ensureStoreAndPermissionIdForNisit(nisitId);
     const store = await this.repo.findStoreById(storeId);
     if (!store) {
       throw new NotFoundException('Store not found.');
@@ -329,6 +340,7 @@ export class StoreService {
         boothNumber: updatedStore.boothNumber ?? null,
         type: updatedStore.type,
         state: updatedStore.state,
+        storeAdminNisitId: updatedStore.storeAdminNisitId,
         members: this.mergeStoreMembers(
           updatedStore.members ?? [],
           updatedStore.memberAttemptEmails ?? [],
@@ -352,7 +364,8 @@ export class StoreService {
       id: store.id,
       storeName: store.storeName,
       type: store.type,
-      state: store.state
+      state: store.state,
+      storeAdminNisitId: store.storeAdminNisitId,
     }
 
     return storeStatus
@@ -517,6 +530,7 @@ export class StoreService {
       storeId: store.id,
       type: store.type,
       state: store.state,
+      storeAdminNisitId: store.storeAdminNisitId,
       isValid,
       checklist,
     };
@@ -539,6 +553,21 @@ export class StoreService {
     const store = await this.repo.findStoreByNisitId(nisitId);
     if (!store) {
       throw new NotFoundException('Store not found.');
+    }
+    return store.id;
+  }
+
+  protected async ensureStoreAndPermissionIdForNisit(nisitId: string): Promise<number> {
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+
+    const store = await this.repo.findStoreByNisitId(nisitId);
+    if (!store) {
+      throw new NotFoundException('Store not found.');
+    }
+    if (store.storeAdminNisitId !== nisitId) {
+      throw new ForbiddenException('You do not have permission to manage this store.');
     }
     return store.id;
   }

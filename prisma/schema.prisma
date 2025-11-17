@@ -107,16 +107,14 @@ model Nisit {
   nisitCardMediaId  String? @unique
   nisitCardMedia    Media?   @relation("NisitCardMedia", fields: [nisitCardMediaId], references: [id])
   
-  /**
-   * ---- One Nisit -> One Store (ผ่าน FK เดียว)
-   */
-  storeId Int?
-  store   Store? @relation(fields: [storeId], references: [id], onDelete: SetNull)
-  // storeRole      StoreRole?
+  // เป็น admin ของร้าน (หนึ่งคนต่อหนึ่งร้าน)
+  storeAdminOf      Store?  @relation("StoreAdmin")
 
-  // ---- อื่น ๆ ที่มีอยู่เดิม
+  // เป็นสมาชิกในร้าน (One Nisit -> One Store)
+  storeId Int?
+  store   Store? @relation("StoreMembers", fields: [storeId], references: [id], onDelete: SetNull)
+
   userIdentities      UserIdentity[]            @relation("NisitUserIdentities")
-  // leadedClubs         ClubInfo[]                @relation("club_leader")
   storeMemberAttempts StoreMemberAttemptEmail[]
 
   @@index([storeId])
@@ -130,6 +128,9 @@ model Store {
   type        StoreType
   state       StoreState @default(CreateStore)
 
+  storeAdminNisitId String @unique
+  storeAdmin        Nisit  @relation("StoreAdmin", fields: [storeAdminNisitId], references: [nisitId], onDelete: Cascade)
+
   clubInfo    ClubInfo?
 
   boothMediaId  String?   @unique
@@ -138,7 +139,7 @@ model Store {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  members Nisit[]
+  members Nisit[] @relation("StoreMembers")
   goods   Goods[]
 
   memberAttemptEmails StoreMemberAttemptEmail[] @relation("Store_AttemptEmails")

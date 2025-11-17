@@ -13,4 +13,7 @@ export class StoreStatusResponseDto {
 
   @ApiProperty({ enum: StoreState, example: StoreState.StoreDetails, readOnly: true })
   state: StoreState;
+
+  @ApiProperty({ example: '6400000001', readOnly: true })
+  storeAdminNisitId: string;
 }
