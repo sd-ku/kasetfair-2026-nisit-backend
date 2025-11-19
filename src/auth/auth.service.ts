@@ -17,8 +17,8 @@ type ExchangeParams = {
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly jwt: JwtService,
+    readonly prisma: PrismaService,
+    readonly jwt: JwtService,
   ) {}
 
   // --- utils -------------------------------------------------
@@ -52,21 +52,20 @@ export class AuthService {
     }
   }
 
-  private async findUserIdentityBySub(providerSub: string) {
+  public async findIdentity(provider: string, providerSub: string) {
+    if (!provider || !providerSub) throw new UnauthorizedException('Missing provider/providerSub');
     return this.prisma.userIdentity.findUnique({
-      where: { provider_providerSub: { provider: 'google', providerSub } },
+      where: { provider_providerSub: { provider, providerSub } },
     });
   }
 
-  private async upsertUserIdentityBySub(payload: AppJwtPayload) {
-    const providerSub = payload.sub;
-    const providerEmail = payload.email?.toLowerCase();
-    if (!providerSub || !providerEmail) throw new UnauthorizedException('Missing sub/email');
-
+  public async upsertIdentity(provider: string, providerSub: string, providerEmail: string) {
+    if (!provider || !providerSub || !providerEmail) throw new UnauthorizedException('Missing provider/sub/email');
+    const normalizedEmail = providerEmail.toLowerCase();
     return this.prisma.userIdentity.upsert({
-      where: { provider_providerSub: { provider: 'google', providerSub } },
-      update: { providerEmail },
-      create: { provider: 'google', providerSub, providerEmail, emailVerified: true },
+      where: { provider_providerSub: { provider, providerSub } },
+      update: { providerEmail: normalizedEmail, emailVerified: true },
+      create: { provider, providerSub, providerEmail: normalizedEmail, emailVerified: true },
     });
   }
 
@@ -100,18 +99,44 @@ export class AuthService {
     return missing;
   }
 
-  public mintServerToken(user: { sub: string; nisitId?: string | null, gmail: string, profileComplete: boolean }) {
+  public mintServerToken(user: { sub: string; nisitId?: string | null; gmail: string; profileComplete: boolean }) {
     return this.jwt.sign(
       {
         sub: String(user.sub),
         nisitId: user.nisitId,
         email: user.gmail,
-        profileComplete:
-        user.profileComplete,
-        typ: 'access'
+        profileComplete: user.profileComplete,
+        typ: 'access',
       },
       { expiresIn: '1d' },
     );
+  }
+
+  public issueAccessTokenForIdentity(
+    identity: { providerSub: string; providerEmail: string; nisitId?: string | null },
+    res?: Response,
+  ) {
+    if (!identity.providerSub || !identity.providerEmail) {
+      throw new InternalServerErrorException('Identity missing providerSub/providerEmail');
+    }
+
+    const accessToken = this.mintServerToken({
+      sub: identity.providerSub,
+      nisitId: identity.nisitId,
+      gmail: identity.providerEmail,
+      profileComplete: Boolean(identity.nisitId),
+    });
+
+    this.setAuthCookie(res, accessToken);
+    res?.cookie('access_token', accessToken, {
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 1000 * 12,
+    });
+
+    return accessToken;
   }
 
   // --- main --------------------------------------------------
@@ -121,45 +146,34 @@ export class AuthService {
     const payload = await this.verifyGoogleIdToken(idToken);
 
     const providerSub = payload.sub;
-    if (!providerSub) throw new UnauthorizedException('Missing providerSub');
+    const providerEmail = payload.email?.toLowerCase();
+    if (!providerSub || !providerEmail) throw new UnauthorizedException('Missing providerSub/email');
 
-    
-    let gmailIdentity = await this.findUserIdentityBySub(providerSub);
-    const nisitId = gmailIdentity?.nisitId;
-    
-    if (!gmailIdentity) {
-      gmailIdentity = await this.upsertUserIdentityBySub({...payload, });
+    let gmailIdentity = await this.findIdentity('google', providerSub);
+    if (!gmailIdentity || gmailIdentity.providerEmail !== providerEmail) {
+      gmailIdentity = await this.upsertIdentity('google', providerSub, providerEmail);
     }
-    
+
     if (!gmailIdentity.providerSub || !gmailIdentity.providerEmail) {
       throw new InternalServerErrorException('User identity incomplete after upsert');
-    } 
+    }
 
-    const accessToken = this.mintServerToken({
-      sub: gmailIdentity.providerSub!,
-      nisitId: nisitId,
-      gmail: gmailIdentity.providerEmail!,
-      profileComplete: Boolean(gmailIdentity.nisitId),
-    });
-    
-    console.log(Boolean(gmailIdentity.nisitId))
-
-    this.setAuthCookie(res, accessToken);
-    res?.cookie('access_token', accessToken, {
-      httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',               // ให้ path ตรงกับตัวเดิม
-      maxAge: 60 * 60 * 1000 * 12,  // 8h
-    });
-
+    this.issueAccessTokenForIdentity(
+      {
+        providerSub: gmailIdentity.providerSub,
+        providerEmail: gmailIdentity.providerEmail,
+        nisitId: gmailIdentity.nisitId,
+      },
+      res,
+    );
 
     return {
-        message: 'Exchange successful',
-        user: {
-          email: gmailIdentity.providerEmail,
-          profileComplete: Boolean(gmailIdentity.nisitId),
-        }
+      message: 'Exchange successful',
+      user: {
+        email: gmailIdentity.providerEmail,
+        profileComplete: Boolean(gmailIdentity.nisitId),
+      },
     };
   }
+  
 }
