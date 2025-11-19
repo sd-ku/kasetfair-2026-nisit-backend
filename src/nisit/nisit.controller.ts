@@ -60,20 +60,12 @@ export class NisitController {
 
     const nisitRes = await this.nisitService.register({ ...payload, email });
 
-    const accessToken = this.authService.mintServerToken({
-      sub: req.user.userId,
+    this.authService.issueAccessTokenForIdentity({
+      providerSub: req.user.userId,
       nisitId: nisitRes.nisitId,
-      gmail: req.user.email,
-      profileComplete: true,
-    });
-
-    this.authService.setAuthCookie(res, accessToken);
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',               // ให้ path ตรงกับตัวเดิม
-      maxAge: 60 * 60 * 1000,  // 1h
+      firstName: nisitRes.firstName,
+      lastName: nisitRes.lastName,
+      providerEmail: req.user.email,
     });
 
     return nisitRes;

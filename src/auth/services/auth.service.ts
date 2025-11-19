@@ -70,10 +70,10 @@ export class AuthService {
   public issueAccessTokenForIdentity(
     identity: {
       providerSub: string;
-      providerEmail: string;
       nisitId?: string | null;
       firstName?: string | null;
       lastName?: string | null;
+      providerEmail: string;
     },
     res?: Response,
   ) {
