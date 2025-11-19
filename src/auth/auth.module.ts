@@ -2,8 +2,11 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
+import { AuthService } from './services/auth.service';
+import { AuthController } from './controllers/auth.controller';
+import { KuAuthController } from './controllers/ku-auth.controller';
+import { KuAuthService } from './services/ku-auth.service';
+import { GoogleAuthService } from './services/google-auth.service';
 
 @Module({
   imports: [
@@ -13,8 +16,8 @@ import { AuthController } from './auth.controller';
       signOptions: { expiresIn: '1d' },
     }),
   ],
-  controllers: [AuthController],
-  providers: [JwtStrategy, AuthService],
-  exports: [AuthService],
+  controllers: [AuthController, KuAuthController],
+  providers: [JwtStrategy, AuthService, KuAuthService, GoogleAuthService],
+  exports: [AuthService, GoogleAuthService],
 })
 export class AuthModule {}

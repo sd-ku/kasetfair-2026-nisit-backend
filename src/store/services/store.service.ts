@@ -197,12 +197,50 @@ export class StoreService {
       throw new UnauthorizedException('Missing user context.');
     }
 
+    // หานิสิต + เช็คว่ามีร้านมั้ย
     const nisit = await this.repo.findNisitByNisitId(nisitId);
     if (!nisit?.storeId) {
       throw new BadRequestException('You are not a member of any store.');
     }
+
+    // โหลดร้านพร้อมสมาชิกทั้งหมด
+    const store = await this.repo.client.store.findUnique({
+      where: { id: nisit.storeId },
+      include: { members: true },
+    });
+
+    if (!store) {
+      throw new BadRequestException('Store not found.');
+    }
+
+    const isAdmin = store.storeAdminNisitId === nisit.nisitId;
+
     await this.repo.client.$transaction(async (tx) => {
-      // ตัดความสัมพันธ์ออก
+      if (isAdmin) {
+        // เลือกสมาชิกคนอื่นมาเป็น admin แทน
+        const otherMembers = store.members.filter(
+          (m) => m.nisitId !== nisit.nisitId,
+        );
+
+        if (otherMembers.length === 0) {
+          // ไม่มีคนให้โอน admin → ยังไม่ให้แอดมินออก
+          throw new BadRequestException(
+            'คุณเป็นผู้ดูแลร้านคนเดียวในร้าน ไม่สามารถออกได้ในขณะนี้',
+          );
+        }
+
+        const successor = otherMembers[0]; // ตอนนี้เอาคนแรกไปก่อน เดี๋ยวอนาคตค่อยเปลี่ยนเป็นเลือกเอง
+
+        // โอนสิทธิ์ admin ให้ successor
+        await tx.store.update({
+          where: { id: store.id },
+          data: {
+            storeAdminNisitId: successor.nisitId,
+          },
+        });
+      }
+
+      // ตัดความสัมพันธ์ของคนที่ออก
       await tx.nisit.update({
         where: { nisitId: nisit.nisitId },
         data: { storeId: null },

@@ -19,14 +19,14 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuthService } from './auth.service';
-import { ExchangeDto, ExchangeResponeDto } from './dto/exchange.dto';
-import { getAuthStatusRequestDto } from '../nisit/dto/status.dto';
+import { GoogleAuthService } from '../services/google-auth.service';
+import { ExchangeDto, ExchangeResponeDto } from '../dto/exchange.dto';
+import { getAuthStatusRequestDto } from '../../nisit/dto/status.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly googleAuthService: GoogleAuthService) {}
 
   @Post('exchange')
   @HttpCode(200)
@@ -55,7 +55,7 @@ export class AuthController {
     @Body() body: ExchangeDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<ExchangeResponeDto> {
-    const result = await this.authService.exchange({ authHeader, body, res });
+    const result = await this.googleAuthService.exchange({ authHeader, body, res });
     return result;
   }
 }

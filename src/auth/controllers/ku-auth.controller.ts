@@ -8,8 +8,8 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { KuAuthService } from './ku-auth.service';
-import { AuthService } from './auth.service';
+import { KuAuthService } from '../services/ku-auth.service';
+import { AuthService } from '../services/auth.service';
 import type { Response, Request } from 'express';
 import * as crypto from 'crypto';
 
@@ -76,10 +76,8 @@ export class KuAuthController {
     }
 
     // 3) map / สร้าง userIdentity ผ่าน AuthService (provider = 'ku')
-    const kuIdentity = await this.authService.upsertKuIdentity({
-      providerSub: kuIdcode ?? kuEmail,   // จะใช้ idcode เป็น sub หรือ email ก็เลือกเอา
-      providerEmail: kuEmail,
-    });
+    const providerSub = kuIdcode ?? kuEmail;
+    const kuIdentity = await this.authService.upsertIdentity('ku', providerSub, kuEmail);
 
     // 4) ใช้ AuthService ออก access_token + ตั้ง cookie ตามมาตรฐานเดียวกับ Google
     this.authService.issueAccessTokenForIdentity(

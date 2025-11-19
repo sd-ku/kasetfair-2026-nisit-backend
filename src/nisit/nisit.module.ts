@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { NisitService } from './nisit.service';
 import { NisitController } from './nisit.controller';
-import { AuthService } from 'src/auth/auth.service';
+import { AuthService } from 'src/auth/services/auth.service';
 import { ConsentModule } from 'src/consent/consent.module';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';

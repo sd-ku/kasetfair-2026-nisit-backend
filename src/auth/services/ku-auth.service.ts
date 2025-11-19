@@ -36,6 +36,7 @@ export class KuAuthService {
   }
 
   async exchangeCodeForToken(code: string, codeVerifier: string) {
+    // แลก code จาก KU เป็น token จาก KU token endpoint
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: this.clientId,

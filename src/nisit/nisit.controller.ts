@@ -25,7 +25,7 @@ import { CreateNisitRequestDto } from './dto/create-nisit.dto';
 import { UpdateNisitDto } from './dto/update-nisit.dto';
 import { NisitResponseDto } from './dto/nisit-response.dto';
 import { NisitService } from './nisit.service';
-import { AuthService } from 'src/auth/auth.service';
+import { AuthService } from 'src/auth/services/auth.service';
 import { getAuthStatusRequestDto, getAuthStatusResponeDto } from './dto/status.dto';
 import type { Response } from 'express';
 
