@@ -3,6 +3,7 @@ import {
   InternalServerErrorException,
   Injectable,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { MediaPurpose, MediaStatus } from '@generated/prisma';
 import { promises as fsp } from 'fs';
@@ -84,46 +85,64 @@ export class MediaService {
   }
 
   public async generatePresignedUrl(
-    actorNisitId: string | null,
+    uploaderId: string | null,
     purpose: MediaPurpose,
     fileName?: string,
     contentType?: string,
   ) {
+    // 1) หา storeId เฉพาะ purpose ที่ต้องการจริง ๆ
+    let storeId: number | undefined = undefined
 
-    const storeId = await this.mediaRepository.findStoreIdByNisitId(actorNisitId ?? '');
+    const needsStore =
+      purpose === MediaPurpose.STORE_LAYOUT ||
+      purpose === MediaPurpose.STORE_GOODS ||
+      purpose === MediaPurpose.CLUB_APPLICATION
 
+    if (needsStore) {
+      if (!uploaderId) {
+        throw new BadRequestException("uploaderId is required for store-related media")
+      }
+
+      storeId = await this.mediaRepository.findStoreIdByNisitId(uploaderId)
+
+      if (!storeId) {
+        throw new BadRequestException("No store found for this uploader")
+      }
+    }
+
+    // 2) resolve folder
     const folder = this.resolveFolderFromPurpose(purpose, {
-      nisitId: actorNisitId ?? undefined,
-      storeId: storeId,
-    });
-
-    // random file name ถ้าไม่ส่งมา
-    const uuid = crypto.randomUUID();
-    const ext = fileName?.includes('.') ? fileName.split('.').pop() : undefined
-    const key = ext ? `${folder}/${uuid}.${ext}` : `${folder}/${uuid}`
-
-    // สร้าง media record ในฐานข้อมูลอย่างเป็นทางการ
-    const media = await this.mediaRepository.create({
-      id: uuid,
-      provider: 's3',
-      bucket: this.bucket,
-      key: key,
-      originalName: fileName ?? null,
-      mimeType: contentType ?? 'application/octet-stream',
-      purpose: purpose,
-      status: MediaStatus.UPLOADING,
-      createdBy: actorNisitId, // หรือดึงจาก req.user.nisitId}
+      uploaderId: uploaderId ?? undefined,
+      storeId,
     })
 
-    // สร้าง presigned URL จริง
+    // 3) สร้าง key
+    const uuid = crypto.randomUUID()
+    const ext = fileName?.includes(".") ? fileName.split(".").pop() : undefined
+    const key = ext ? `${folder}/${uuid}.${ext}` : `${folder}/${uuid}`
+
+    // 4) create media record
+    const media = await this.mediaRepository.create({
+      id: uuid,
+      provider: "s3",
+      bucket: this.bucket,
+      key,
+      originalName: fileName ?? null,
+      mimeType: contentType ?? "application/octet-stream",
+      purpose,
+      status: MediaStatus.UPLOADING,
+      createdBy: uploaderId ?? undefined,
+    })
+
+    // 5) presigned URL
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
-      ContentType: contentType ?? 'application/octet-stream',
+      ContentType: contentType ?? "application/octet-stream",
     })
 
     const uploadUrl = await getSignedUrl(this.s3, command, {
-      expiresIn: 300,
+      expiresIn: 300, // 5 minutes
     })
 
     return {
@@ -134,7 +153,7 @@ export class MediaService {
   }
 
   public async confirmS3Upload(
-    actorNisitId: string,
+    uploaderId: string | null,
     params: { mediaId: string; size?: number },
   ) {
     const { mediaId, size } = params
@@ -153,7 +172,7 @@ export class MediaService {
       throw new BadRequestException('Media upload has failed')
     }
 
-    // ถ้าถูก confirm ไปแล้ว ซ้ำ ก็จะคืนของเดิมให้เลย (idempotent)
+    // idempotent: ถ้าเคย UPLOADED แล้วก็คืนเดิมไปเลย
     if (media.status === MediaStatus.UPLOADED) {
       return media
     }
@@ -162,37 +181,37 @@ export class MediaService {
       throw new BadRequestException('Media is not in UPLOADING state')
     }
 
-    // ถ้าอยากบังคับว่าใครสร้าง ใคร confirm ต้องคนเดียวกัน:
-    // if (media.createdBy && media.createdBy !== actorNisitId) {
-    //   throw new ForbiddenException('You are not the owner of this media')
-    // }
+    // ถ้าอยากกันเคสคนอื่นมา confirm ไฟล์เรา:
+    // - ทำเฉพาะตอนที่มี uploaderId (เช่นหลังสมัคร / เคสที่มี identity ชัด)
+    // - ถ้าเป็นเคส register ที่เราไม่อยาก strict ก็ปล่อยได้ (uploaderId = null)
+    if (uploaderId && media.createdBy && media.createdBy !== uploaderId) {
+      throw new ForbiddenException('You are not the owner of this media')
+    }
 
-    const updated = await this.mediaRepository.update(mediaId, {
+    const updateData = {
       status: MediaStatus.UPLOADED,
       size: size ?? media.size,
-      // เผื่อกรณีตอนสร้างให้ createdBy = 'system'
-      createdBy: media.createdBy ?? actorNisitId,
-    })
+      createdBy: uploaderId ?? media.createdBy,
+    }
+
+    const updated = await this.mediaRepository.update(mediaId, updateData)
 
     return updated
   }
 
+
   private resolveFolderFromPurpose(
     purpose: MediaPurpose,
     params: {
-      nisitId?: string;
+      uploaderId?: string;
       storeId?: number;
   } = {},
   ): string {
-    const { nisitId, storeId } = params
+    const { uploaderId, storeId } = params
 
     switch (purpose) {
       case MediaPurpose.NISIT_CARD: {
-        if (!nisitId) {
-          throw new BadRequestException('nisitId is required for NISIT_CARD media')
-        }
-        // แยกตามคนก็ดี เวลาเคลียร์ หรือดูของใครเสีย ก็ง่าย
-        return `nisit/${nisitId}`
+        return `nisit`
       }
 
       case MediaPurpose.CLUB_APPLICATION: {

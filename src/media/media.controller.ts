@@ -35,19 +35,20 @@ export class MediaController {
     @Req() req,
     @Body() body: CreateMediaPresignDto,
   ) {
-    const actorNisitId = req.user.nisitId;
-    if (!actorNisitId) {
-      throw new UnauthorizedException("invalid nisit id")
-    }
+    // ยังกัน “ต้องล็อกอิน” ผ่าน JwtAuthGuard อยู่เหมือนเดิม
+    const user = req.user as { nisitId?: string; sub?: string; email?: string }
+
+    // เอา identity บางอย่างมาเป็น uploaderId ถ้ามี
+    const uploaderId: string | null = user.nisitId ?? user.sub ?? null
 
     const presign = await this.mediaService.generatePresignedUrl(
-      actorNisitId,
+      uploaderId,
       body.purpose,
       body.fileName,
       body.contentType,
-    );
+    )
 
-    return presign;
+    return presign
   }
 
   @Post('s3/confirm')
@@ -55,12 +56,13 @@ export class MediaController {
     @Req() req,
     @Body() body: ConfirmS3UploadDto,
   ) {
-    const actorNisitId = req.user?.nisitId
-    if (!actorNisitId) {
-      throw new UnauthorizedException('invalid nisit id')
-    }
+    // ยังกัน “ต้องล็อกอิน” ผ่าน JwtAuthGuard อยู่เหมือนเดิม
+    const user = req.user as { nisitId?: string; sub?: string; email?: string }
 
-    const result = await this.mediaService.confirmS3Upload(actorNisitId, {
+    // เอา identity บางอย่างมาเป็น uploaderId ถ้ามี
+    const uploaderId: string | null = user.nisitId ?? user.sub ?? null
+
+    const result = await this.mediaService.confirmS3Upload(uploaderId, {
       mediaId: body.mediaId,
       size: body.size,
     })
