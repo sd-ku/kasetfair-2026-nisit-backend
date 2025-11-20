@@ -1,0 +1,15 @@
+-- CreateEnum
+CREATE TYPE "MediaPurpose" AS ENUM ('NISIT_CARD', 'STORE_LAYOUT', 'STORE_GOODS', 'CLUB_APPLICATION', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "MediaStatus" AS ENUM ('UPLOADING', 'UPLOADED', 'FAILED', 'DELETE');
+
+-- AlterTable
+ALTER TABLE "medias" ADD COLUMN     "bucket" TEXT,
+ADD COLUMN     "key" TEXT,
+ADD COLUMN     "originalName" TEXT,
+ADD COLUMN     "purpose" "MediaPurpose" NOT NULL DEFAULT 'OTHER',
+ADD COLUMN     "size" INTEGER,
+ADD COLUMN     "status" "MediaStatus" NOT NULL DEFAULT 'UPLOADING',
+ALTER COLUMN "externalId" DROP NOT NULL,
+ALTER COLUMN "link" DROP NOT NULL;

@@ -18,6 +18,32 @@ export class AuthService {
     });
   }
 
+  public async findNisitInfoByProviderSub(provider: string, providerSub: string) {
+    if (!provider || !providerSub) {
+      throw new UnauthorizedException('Missing provider/providerSub');
+    }
+
+    const identity = await this.prisma.userIdentity.findUnique({
+      where: { provider_providerSub: { provider, providerSub } },
+      select: {
+        info: {
+          select: {
+            // ตรงนี้ให้ตรงกับ model Nisit ของมึงจริงๆ
+            nisitId: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // ให้รีเทิร์นเฉพาะ info (Nisit) หรือ null
+    return identity?.info;
+  }
+
+
   public async upsertIdentity(
     provider: string,
     providerSub: string,

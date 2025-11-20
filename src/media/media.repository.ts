@@ -4,7 +4,7 @@ import {
   Prisma,
   Store,
   Nisit,
-  Media
+  Media,
 } from '@generated/prisma';
 
 @Injectable()
@@ -66,5 +66,28 @@ export class MediaRepository {
         nisitCardOwner: null,
       },
     });
+  }
+
+  async findStoreByAdminNisitId(nisitId: string) {
+    return this.prisma.store.findUnique({
+      where: { storeAdminNisitId: nisitId },
+    });
+  }
+
+  async findStoreIdByNisitId(nisitId: string) {
+    const storeId = await this.prisma.nisit.findUnique({
+      where: { nisitId },
+      select: {
+        store: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    console.log('storeId in repo', storeId);
+
+    return storeId?.store?.id;
   }
 }

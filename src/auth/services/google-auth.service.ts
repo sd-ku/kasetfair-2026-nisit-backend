@@ -51,20 +51,21 @@ export class GoogleAuthService {
       throw new UnauthorizedException('Missing providerSub/email');
     }
 
-    let gmailIdentity = await this.auth.findIdentity('google', providerSub);
-    if (!gmailIdentity || gmailIdentity.providerEmail !== providerEmail) {
-      gmailIdentity = await this.auth.upsertIdentity('google', providerSub, providerEmail);
-    }
-
+    const gmailIdentity = await this.auth.upsertIdentity('google', providerSub, providerEmail);
     if (!gmailIdentity.providerSub || !gmailIdentity.providerEmail) {
       throw new InternalServerErrorException('User identity incomplete after upsert');
     }
+
+    const nisitInfo = await this.auth.findNisitInfoByProviderSub('google', providerSub);
 
     this.auth.issueAccessTokenForIdentity(
       {
         providerSub: gmailIdentity.providerSub,
         providerEmail: gmailIdentity.providerEmail,
-        nisitId: gmailIdentity.nisitId,
+        nisitId: nisitInfo?.nisitId,
+        firstName: nisitInfo?.firstName,
+        lastName: nisitInfo?.lastName,
+        phone: nisitInfo?.phone,
       },
       res,
     );

@@ -48,6 +48,21 @@ enum StoreMemberStatus {
   Declined
 }
 
+enum MediaPurpose {
+  NISIT_CARD
+  STORE_LAYOUT
+  STORE_GOODS
+  CLUB_APPLICATION
+  OTHER
+}
+
+enum MediaStatus {
+  UPLOADING
+  UPLOADED
+  FAILED
+  DELETE
+}
+
 model ConsentText {
   id           String       @id @default(uuid())
   version      Int
@@ -210,13 +225,22 @@ model Goods {
 }
 
 model Media {
-  id        String   @id @default(uuid()) // ใช้ id นี้เป็น mediaId ส่งให้ frontend
-  provider  String
-  externalId String
-  mimeType  String
-  link       String
-  createdBy String?
-  createdAt DateTime @default(now())
+  id            String   @id @default(uuid()) // ใช้ id นี้เป็น mediaId ส่งให้ frontend
+  provider      String
+  bucket        String?
+  key           String?  // {bucket}/{key} คือ path เต็มใน S3
+  externalId    String?
+  
+  originalName  String?
+  mimeType      String
+  size          Int?
+  purpose       MediaPurpose  @default(OTHER)
+  
+  link          String?
+  status        MediaStatus   @default(UPLOADING)
+  
+  createdBy     String?
+  createdAt     DateTime @default(now())
 
   nisitCardOwner  Nisit?   @relation("NisitCardMedia")
   clubApplication ClubInfo? @relation("ClubApplicationMedia")

@@ -10,13 +10,17 @@ import {
   UnauthorizedException,
   Req,
   Query,
+  Get,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MediaService } from './media.service'
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { CreateMediaDto } from './dto/create-media.dto';
-import { MediaPurpose } from './dto/create-media.dto';
+import { MediaPurpose } from '@generated/prisma';
+import { content } from 'googleapis/build/src/apis/content';
+import { CreateMediaPresignDto } from './dto/create-presign.dto';
+import { ConfirmS3UploadDto } from './dto/confirm-s3-upload.dto';
 
 @Controller('api/media')
 @UseGuards(JwtAuthGuard)
@@ -26,44 +30,49 @@ export class MediaController {
     private readonly mediaService: MediaService,
   ) {}
 
-  @Post('upload')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: (Number(process.env.MAX_UPLOAD_MB ?? 10)) * 1024 * 1024 },
-    }),
-  )
-  async upload(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: CreateMediaDto,
+  @Post('s3/presign')
+  async presignUpload(
     @Req() req,
+    @Body() body: CreateMediaPresignDto,
   ) {
-
-    let id = null;
-    if (body.purpose == MediaPurpose.NISIT_CARD) {
-      id = req.user.userId;
-      if (!id) {
-        throw new UnauthorizedException("invalid sub id")
-      }
-    } else {
-      id = req.user.nisitId;
-      if (!id) {
-        throw new UnauthorizedException("invalid nisit id")
-      }
+    const actorNisitId = req.user.nisitId;
+    if (!actorNisitId) {
+      throw new UnauthorizedException("invalid nisit id")
     }
 
-    // if (!id) {
-    //   throw new UnauthorizedException("invalid id")
-    // }
+    const presign = await this.mediaService.generatePresignedUrl(
+      actorNisitId,
+      body.purpose,
+      body.fileName,
+      body.contentType,
+    );
 
-    // const nisitId = req.user.nisitId;
-    // if (!nisitId) throw new UnauthorizedException("invalid nisit id");
+    return presign;
+  }
 
-    if (!file) {
-      throw new BadRequestException('File is required');
+  @Post('s3/confirm')
+  async confirmS3Upload(
+    @Req() req,
+    @Body() body: ConfirmS3UploadDto,
+  ) {
+    const actorNisitId = req.user?.nisitId
+    if (!actorNisitId) {
+      throw new UnauthorizedException('invalid nisit id')
     }
 
-    const filePath = this.mediaService.saveFileToLocal(body.purpose, file, id);  
+    const result = await this.mediaService.confirmS3Upload(actorNisitId, {
+      mediaId: body.mediaId,
+      size: body.size,
+    })
 
-    return filePath;
+    return result
+  }
+
+  @Get('s3/list')
+  async listAllMedia(
+    @Query('prefix') prefix?: string,
+  ) {
+    const objects = await this.mediaService.listMediaFromS3({ prefix });
+    return objects;
   }
 }
