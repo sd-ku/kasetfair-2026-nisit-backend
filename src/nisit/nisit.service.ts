@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   ConflictException,
   Injectable,
@@ -19,7 +19,6 @@ export class NisitService {
   ) {}
 
   async register(createDto: CreateNisitRequestDto): Promise<NisitResponseDto> {
-    // บังคับให้ต้องยอมรับ consent ก่อน
     if (!createDto.consentAccepted) {
       throw new BadRequestException(
         'You must accept the consent text before registration.',
@@ -29,33 +28,43 @@ export class NisitService {
     const data = this.buildCreateData(createDto);
 
     try {
-      // 1) สร้างนิสิต
-      const nisit = await this.prisma.nisit.create({ data });
+      const nisit = await this.prisma.nisit.upsert({ 
+        where: { nisitId: data.nisitId },
+        update: {
+          phone: data.phone,
+          email: data.email,
+          nisitCardMediaId: data.nisitCardMediaId
+        },
+        create: { 
+          nisitId: data.nisitId,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+          email: data.email,
+          nisitCardMediaId: data.nisitCardMediaId,
+        }
+      });
 
-      // 2) บันทึก consent ที่ยอมรับ
       await this.consentService.recordNisitConsent({
-        // ใน schema ของนาย userConsent.nisitId = รหัสนิสิต
-        nisitId: nisit.nisitId,              // หรือ createDto.nisitId ก็ได้ถ้าตรงกัน
+        nisitId: nisit.nisitId,
         consentTextId: createDto.consentTextId,
-        // ตอนนี้ยังไม่ได้สนใจ ip/device ก็ใส่ null ไปก่อน
         ipAddress: null,
         userAgent: null,
         deviceInfo: null,
       });
 
-      // 3) ลิงก์ pending identities เหมือนเดิม
       await this.linkPendingIdentities(nisit.email, nisit.nisitId);
 
       return nisit;
     } catch (error) {
       throw this.transformPrismaError(error);
     }
-  }
+  }  
 
   async getNisitInfoBySubId(providerSub: string): Promise<NisitResponseDto> {
-    const nisitInfo = await this.prisma.userIdentity.findUnique({
+    const nisitInfo = await this.prisma.userIdentity.findFirst({
       where: {
-        provider_providerSub: { provider: 'google', providerSub },
+        providerSub
       },
       include: {
         info: true,
@@ -112,7 +121,7 @@ export class NisitService {
   private buildCreateData(
     dto: CreateNisitRequestDto,
   ) {
-    console.log(dto)
+    // console.log(dto)
     try {
       return {
         nisitId: dto.nisitId.trim(),
@@ -169,7 +178,7 @@ export class NisitService {
   }
 
   private transformPrismaError(error: unknown): Error {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (this.isPrismaKnownRequestError(error)) {
       if (error.code === 'P2002') {
         const fields = this.extractConflictFields(error);
         const conflictField = fields || 'specified field';
@@ -180,7 +189,7 @@ export class NisitService {
       }
     }
 
-    return error instanceof Error ? error : new Error('Unknown error');
+    return this.isStandardError(error) ? error : new Error('Unknown error');
   }
 
   private extractConflictFields(error: Prisma.PrismaClientKnownRequestError) {
@@ -199,5 +208,24 @@ export class NisitService {
 
     const mapped = fields.map((field) => fieldMap[field] ?? field);
     return mapped.join(', ');
+  }
+
+  private isPrismaKnownRequestError(
+    error: unknown,
+  ): error is Prisma.PrismaClientKnownRequestError {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      typeof (error as { code: unknown }).code === 'string'
+    );
+  }
+
+  private isStandardError(error: unknown): error is Error {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'message' in error
+    );
   }
 }

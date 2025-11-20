@@ -60,31 +60,46 @@ export class KuAuthController {
     );
 
     // 2) ดึง userinfo จาก KU
-    const userInfo = await this.kuAuthService.getUserInfo(token.access_token);
+    let userInfo = await this.kuAuthService.getUserInfo(token.access_token);
+    const idCode = userInfo['idcode'];
+    if (!idCode) {
+      throw new HttpException('No idCode from KU SSO', HttpStatus.FORBIDDEN);
+    }
 
+    console.log('KU UserInfo:', userInfo);
+    
     const kuEmail =
-      userInfo.mail ??
-      userInfo['google-mail'] ??
-      userInfo['office365-mail'];
-
+    userInfo['google-mail'] ??
+    userInfo['office365-mail'];
+    
     const displayName = userInfo.thainame ?? userInfo.cn ?? kuEmail;
     const typePerson = userInfo['type-person'];
     const kuIdcode = userInfo['idcode']; // สมมติ field นี้มี และ unique ต่อ user
-
+    
     if (!kuEmail) {
       throw new HttpException('No email from KU SSO', HttpStatus.FORBIDDEN);
     }
 
+    userInfo = await this.kuAuthService.upsertNisitProfileFromKu({
+      nisitId: idCode,
+      firstName: userInfo['first-name'],
+      lastName: userInfo['last-name'],
+      gmail: userInfo['google-mail'],
+    });
+
     // 3) map / สร้าง userIdentity ผ่าน AuthService (provider = 'ku')
-    const providerSub = kuIdcode ?? kuEmail;
-    const kuIdentity = await this.authService.upsertIdentity('ku', providerSub, kuEmail);
+    const providerSub = kuIdcode ?? userInfo['uid'];
+    const kuIdentity = await this.authService.upsertIdentity('ku', providerSub, kuEmail, kuIdcode);
 
     // 4) ใช้ AuthService ออก access_token + ตั้ง cookie ตามมาตรฐานเดียวกับ Google
     this.authService.issueAccessTokenForIdentity(
       {
         providerSub: kuIdentity.providerSub,
-        providerEmail: kuIdentity.providerEmail,
         nisitId: kuIdentity.nisitId,
+        firstName: userInfo.firstName,
+        lastName: userInfo.lastName,
+        phone: userInfo.phone,
+        providerEmail: kuIdentity.providerEmail,
       },
       res,
     );

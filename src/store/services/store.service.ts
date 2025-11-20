@@ -6,6 +6,7 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  InternalServerErrorException
 } from '@nestjs/common';
 import {
   Nisit,
@@ -734,20 +735,39 @@ export class StoreService {
   // }
 
   protected transformPrismaError(error: unknown): Error {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2002') {
-        const target = Array.isArray(error.meta?.target)
-          ? error.meta.target.join(', ')
-          : String(error.meta?.target ?? 'unique constraint');
-        return new ConflictException(`Duplicate value for ${target}.`);
+    // จัดการเฉพาะ Prisma error ที่รู้จักก่อน
+    if (this.isPrismaKnownRequestError(error)) {
+      switch (error.code) {
+        // unique constraint
+        case 'P2002': {
+          const rawTarget = error.meta?.target as string | string[] | undefined;
+
+          const target = Array.isArray(rawTarget)
+            ? rawTarget.join(', ')
+            : rawTarget ?? 'unique constraint';
+
+          return new ConflictException(`Duplicate value for ${target}.`);
+        }
+
+        // record not found
+        case 'P2025': {
+          const cause = (error.meta?.cause as string | undefined) ?? 'Record not found';
+          return new NotFoundException(cause);
+        }
+
+        default:
+          // Prisma error แต่เราไม่แมปเฉพาะ → ให้เป็น 500 DB error ไป
+          return new InternalServerErrorException('Database error occurred.');
       }
     }
 
-    if (error instanceof Error) {
-      return error;  // แคบเป็น Error ปกติได้แล้ว
+    // ไม่ใช่ Prisma แต่เป็น Error ปกติ → ปล่อยผ่าน
+    if (this.isStandardError(error)) {
+      return error;
     }
 
-    return new Error('Unknown error');
+    // ไม่รู้ก็ห่อเป็น 500 ให้เลย
+    return new InternalServerErrorException('Unknown error');
   }
 
   private mergeStoreMembers(
@@ -813,4 +833,28 @@ export class StoreService {
       return true;
     });
   }
+
+  private isStandardError(
+    error: unknown,
+  ): error is Error {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'message' in error
+    );
+  }
+
+  private isPrismaKnownRequestError(
+    error: unknown,
+  ): error is Prisma.PrismaClientKnownRequestError {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      typeof (error as { code: unknown }).code === 'string'
+    );
+  }
 }
+
+
+

@@ -1,22 +1,18 @@
 import { Module } from '@nestjs/common';
 import { NisitService } from './nisit.service';
 import { NisitController } from './nisit.controller';
-import { AuthService } from 'src/auth/services/auth.service';
 import { ConsentModule } from 'src/consent/consent.module';
 import { PassportModule } from '@nestjs/passport';
-import { JwtModule } from '@nestjs/jwt';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '1d' },
-    }),
+    AuthModule,
     ConsentModule,
   ],
   controllers: [NisitController],
-  providers: [NisitService, AuthService],
+  providers: [NisitService],
   exports: [NisitService],
 })
 export class NisitModule {}

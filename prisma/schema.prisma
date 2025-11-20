@@ -1,6 +1,5 @@
 datasource db {
   provider   = "postgresql"
-  url        = env("DATABASE_URL")
   extensions = [citext]
 }
 
@@ -102,7 +101,7 @@ model Nisit {
   nisitId           String  @id
   firstName         String
   lastName          String
-  phone             String  @unique
+  phone             String?  @unique
   email             String  @unique @db.Citext
   nisitCardMediaId  String? @unique
   nisitCardMedia    Media?   @relation("NisitCardMedia", fields: [nisitCardMediaId], references: [id])

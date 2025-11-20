@@ -1,10 +1,20 @@
 // ku-auth.service.ts
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  HttpException,
+  HttpStatus,
+  UnauthorizedException
+} from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 import axios from 'axios';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class KuAuthService {
+  constructor(
+    private readonly prisma: PrismaService,
+  ) {}
+  
   private readonly clientId = process.env.KU_CLIENT_ID!;
   private readonly clientSecret = process.env.KU_CLIENT_SECRET!;
   private readonly redirectUri = process.env.KU_REDIRECT_URI!;
@@ -78,5 +88,38 @@ export class KuAuthService {
         HttpStatus.BAD_GATEWAY,
       );
     }
+  }
+
+  public async upsertNisitProfileFromKu(params: {
+    nisitId: string;      // userInfo.sub หรือ userInfo.idcode
+    firstName?: string;
+    lastName?: string;
+    gmail: string;
+  }) {
+    const { nisitId, firstName, lastName, gmail } = params;
+
+    if (!nisitId || !gmail) {
+      throw new UnauthorizedException('Missing nisitId or gmail');
+    }
+
+    const normalizedGmail = gmail.toLowerCase();
+
+    const nisit = await this.prisma.nisit.upsert({
+      where: { nisitId },
+      update: {
+        email: normalizedGmail,
+        // ใช้ undefined เพื่อไม่ overwrite เป็น null ถ้าไม่ได้ส่งมา
+        firstName: firstName ?? undefined,
+        lastName: lastName ?? undefined,
+      },
+      create: {
+        nisitId,
+        firstName: firstName ?? '',
+        lastName: lastName ?? '',
+        email: normalizedGmail,
+      },
+    });
+
+    return nisit;
   }
 }

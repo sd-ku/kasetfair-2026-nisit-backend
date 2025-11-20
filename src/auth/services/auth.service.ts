@@ -1,4 +1,4 @@
-﻿// src/auth/auth.service.ts
+﻿// src/auth/services/auth.service.ts
 import { Injectable, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Response } from 'express';
@@ -18,15 +18,30 @@ export class AuthService {
     });
   }
 
-  public async upsertIdentity(provider: string, providerSub: string, providerEmail: string) {
+  public async upsertIdentity(
+    provider: string,
+    providerSub: string,
+    providerEmail: string,
+    nisitId?: string,
+  ) {
     if (!provider || !providerSub || !providerEmail) {
       throw new UnauthorizedException('Missing provider/sub/email');
     }
     const normalizedEmail = providerEmail.toLowerCase();
     return this.prisma.userIdentity.upsert({
       where: { provider_providerSub: { provider, providerSub } },
-      update: { providerEmail: normalizedEmail, emailVerified: true },
-      create: { provider, providerSub, providerEmail: normalizedEmail, emailVerified: true },
+      update: { 
+        providerEmail: normalizedEmail, 
+        emailVerified: true,
+        nisitId: nisitId 
+      },
+      create: { 
+        provider,
+        providerSub, 
+        providerEmail: normalizedEmail, 
+        emailVerified: true, 
+        nisitId
+      },
     });
   }
 
@@ -50,16 +65,19 @@ export class AuthService {
       nisitId?: string | null;
       firstName?: string | null;
       lastName?: string | null;
-      gmail: string;
+      phone?: string | null;
+      email: string;
       profileComplete: boolean
-    }) {
+    },
+  ): string {
     return this.jwt.sign(
       {
         sub: String(user.sub),
         nisitId: user.nisitId,
         firstName: user.firstName,
         lastName: user.lastName,
-        email: user.gmail,
+        phone: user.phone,
+        email: user.email,
         profileComplete: user.profileComplete,
         typ: 'access',
       },
@@ -73,6 +91,7 @@ export class AuthService {
       nisitId?: string | null;
       firstName?: string | null;
       lastName?: string | null;
+      phone?: string | null;
       providerEmail: string;
     },
     res?: Response,
@@ -86,7 +105,8 @@ export class AuthService {
       nisitId: identity.nisitId,
       firstName: identity.firstName,
       lastName: identity.lastName,
-      gmail: identity.providerEmail,
+      phone: identity.phone,
+      email: identity.providerEmail,
       profileComplete: Boolean(identity.nisitId),
     });
 

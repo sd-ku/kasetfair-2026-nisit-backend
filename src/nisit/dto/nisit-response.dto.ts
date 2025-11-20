@@ -11,10 +11,10 @@ export class NisitResponseDto {
   lastName: string;
 
   @ApiProperty({ example: '0891234567' })
-  phone: string;
+  phone?: string | null;
 
   @ApiProperty({ example: 'arthit@ku.th' })
-  email: string;
+  email?: string | null;
 
   @ApiProperty({ example: 'https://example.com/card.jpg', nullable: true })
   nisitCardMediaId: string | null;

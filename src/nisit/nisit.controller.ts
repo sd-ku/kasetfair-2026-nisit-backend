@@ -60,13 +60,16 @@ export class NisitController {
 
     const nisitRes = await this.nisitService.register({ ...payload, email });
 
+    console.log('Nisit registered:', nisitRes);
+
     this.authService.issueAccessTokenForIdentity({
       providerSub: req.user.userId,
       nisitId: nisitRes.nisitId,
       firstName: nisitRes.firstName,
       lastName: nisitRes.lastName,
+      phone: nisitRes.phone,
       providerEmail: req.user.email,
-    });
+    }, res);
 
     return nisitRes;
   }
