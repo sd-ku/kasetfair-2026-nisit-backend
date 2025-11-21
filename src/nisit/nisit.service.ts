@@ -92,6 +92,25 @@ export class NisitService {
       throw new BadRequestException('No fields provided to update');
     }
 
+    const nisit = await this.prisma.nisit.findUnique({
+      where: { nisitId },
+    });
+    if (!nisit) {
+      throw new NotFoundException('Nisit not found');
+    }
+
+    if (updateDto.nisitCardMediaId && updateDto.nisitCardMediaId !== nisit.nisitCardMediaId) {
+      // ลบรูปเก่าถ้ามี
+      if (nisit.nisitCardMediaId) {
+        await this.prisma.media.update({
+          where: { id: nisit.nisitCardMediaId },
+          data: { status: 'DELETE' },
+        });
+      }
+    }
+
+    console.log('Updating nisit:', nisitId, data);
+
     try {
       const nisit = await this.prisma.nisit.update({
         where: { nisitId },
@@ -150,6 +169,19 @@ export class NisitService {
     }
     if (dto.phone !== undefined) {
       data.phone = dto.phone.trim();
+    }
+    if (dto.nisitCardMediaId !== undefined) {
+      if (dto.nisitCardMediaId) {
+        // มีค่า → ผูก media ตัวใหม่
+        data.nisitCardMedia = {
+          connect: { id: dto.nisitCardMediaId },
+        };
+      } else {
+        // ส่งมาเป็น "" หรือ null → ถอดความสัมพันธ์ออก
+        data.nisitCardMedia = {
+          disconnect: true,
+        };
+      }
     }
 
     return data;

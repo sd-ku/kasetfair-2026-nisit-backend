@@ -11,6 +11,8 @@ import {
   Req,
   Query,
   Get,
+  Delete,
+  Param,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -76,5 +78,33 @@ export class MediaController {
   ) {
     const objects = await this.mediaService.listMediaFromS3({ prefix });
     return objects;
+  }
+
+  @Delete('s3/:mediaId')
+  async deleteMedia(
+    @Param('mediaId') mediaId: string,
+    @Req() req: any,
+  ) {
+    const actorId = req.user?.nisitId ?? req.user?.userId ?? null;
+
+    return this.mediaService.deleteMedia({
+      mediaId,
+      actorId: actorId,
+    });
+  }
+
+  @Get('s3/:mediaId')
+  async getMediaInfo(
+    @Param('mediaId') mediaId: string,
+    @Req() req: any,
+  ) {
+    const media = await this.mediaService.getMediaInfo({
+      mediaId,
+      actorId: req.user?.nisitId ?? req.user?.userId ?? null,
+    });
+    if (!media) {
+      throw new BadRequestException('Media not found');
+    }
+    return media;
   }
 }

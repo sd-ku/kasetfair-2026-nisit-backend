@@ -7,6 +7,20 @@ import {
   Media,
 } from '@generated/prisma';
 
+export type MediaWithStoreAdmin = Prisma.MediaGetPayload<{
+  include: {
+    storeBooth: {
+      select: { 
+        id: true;
+        storeAdminNisitId: true
+      };
+    };
+    good: {
+      select: { storeId: true };
+    };
+  };
+}>;
+
 @Injectable()
 export class MediaRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -21,8 +35,21 @@ export class MediaRepository {
   /**
    * ค้นหา media ด้วย id
    */
-  async findById(id: string): Promise<Media | null> {
-    return this.prisma.media.findUnique({ where: { id } });
+  async findById(id: string): Promise<MediaWithStoreAdmin | null> {
+    return this.prisma.media.findUnique({
+      where: { id },
+      include: {
+        storeBooth: {
+          select: { 
+            id: true,
+            storeAdminNisitId: true 
+          },
+        },
+        good: {
+          select: { storeId: true },
+        },
+      },
+    });
   }
 
   /**

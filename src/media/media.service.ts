@@ -5,15 +5,18 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { MediaPurpose, MediaStatus } from '@generated/prisma';
+import { Media, MediaPurpose, MediaStatus } from '@generated/prisma';
 import { promises as fsp } from 'fs';
 import * as path from 'path';
 import { MediaRepository } from './media.repository';
+import type { MediaWithStoreAdmin } from './media.repository';
 import {
   S3Client,
   ListObjectsV2Command,
   _Object as S3Object,
   PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
@@ -152,6 +155,15 @@ export class MediaService {
     }
   }
 
+  async getPresignedGetUrl(key: string) {
+    const cmd = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+
+    return getSignedUrl(this.s3, cmd, { expiresIn: 60 * 10 }); // 10 นาที
+  }
+
   public async confirmS3Upload(
     uploaderId: string | null,
     params: { mediaId: string; size?: number },
@@ -191,6 +203,7 @@ export class MediaService {
     const updateData = {
       status: MediaStatus.UPLOADED,
       size: size ?? media.size,
+      link: `${process.env.S3_ENDPOINT}/${this.bucket}/${media.key}`,
       createdBy: uploaderId ?? media.createdBy,
     }
 
@@ -199,6 +212,152 @@ export class MediaService {
     return updated
   }
 
+  private async checkPrivilegeToDeleteMedia(media: MediaWithStoreAdmin, actorId: string) {
+    // ตัวอย่างการเช็คสิทธิ์ลบ media ตาม purpose
+    // ในที่นี้สมมติว่าเฉพาะ uploader เท่านั้นที่ลบได้
+    // ถ้ามี requirement อื่น ๆ ก็เพิ่มเงื่อนไขตรงนี้
+    switch (media.purpose) {
+      case MediaPurpose.NISIT_CARD: {
+        if (media.createdBy !== actorId) {
+          throw new ForbiddenException('You do not have permission to delete this media');
+        }
+        break;
+      }
+      case MediaPurpose.STORE_LAYOUT: {
+        const store = media.storeBooth;
+        if (!store || store.storeAdminNisitId !== actorId) {
+          throw new ForbiddenException('You do not have permission to delete this media');
+        }
+        break;
+      }
+      case MediaPurpose.STORE_GOODS: {
+        const storeIdFromGood = media.good?.storeId;
+
+        const actorStoreId = await this.mediaRepository.findStoreIdByNisitId(actorId);
+        const isMember = !!actorStoreId && actorStoreId === storeIdFromGood;
+        const isAdmin = media.storeBooth?.storeAdminNisitId === actorId;
+
+        if (!isMember && !isAdmin) {
+          throw new ForbiddenException('You do not have permission to delete this media');
+        }
+        break;
+      }
+      case MediaPurpose.CLUB_APPLICATION: {
+        if (media.storeBooth?.storeAdminNisitId !== actorId) {
+          throw new ForbiddenException('You do not have permission to delete this media');
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  private async checkPrivilegeToAccessMedia(media: MediaWithStoreAdmin, actorId: string) {
+    // ตัวอย่างการเช็คสิทธิ์เข้าถึง media ตาม purpose
+    // ในที่นี้สมมติว่าเฉพาะ uploader เท่านั้นที่เข้าถึงได้
+    switch (media.purpose) {
+      case MediaPurpose.NISIT_CARD: {
+        if (media.createdBy !== actorId) {
+          throw new ForbiddenException('You do not have permission to access this media');
+        }
+        break;
+      }
+      case MediaPurpose.STORE_LAYOUT: {
+        const storeId = media.storeBooth?.id;
+
+        const actorStoreId = await this.mediaRepository.findStoreIdByNisitId(actorId);
+        const isMember = !!actorStoreId && actorStoreId === storeId;
+
+        if (!isMember) {
+          throw new ForbiddenException('You do not have permission to delete this media');
+        }
+        break;
+      }
+      case MediaPurpose.STORE_GOODS: {
+        const storeIdFromGood = media.good?.storeId;
+        const actorStoreId = await this.mediaRepository.findStoreIdByNisitId(actorId);
+        const isMember = !!actorStoreId && actorStoreId === storeIdFromGood;
+        if (!isMember) {
+          throw new ForbiddenException('You do not have permission to access this media');
+        }
+        break;
+      }
+      case MediaPurpose.CLUB_APPLICATION: {
+        const storeId = media.storeBooth?.id;
+        const actorStoreId = await this.mediaRepository.findStoreIdByNisitId(actorId);
+        const isMember = !!actorStoreId && actorStoreId === storeId;
+        if (!isMember) {
+          throw new ForbiddenException('You do not have permission to access this media');
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  async deleteMedia(params: { mediaId: string; actorId: string }) {
+    const { mediaId, actorId } = params;
+
+    if (!actorId) {
+      throw new BadRequestException('actorId is required to delete media');
+    }
+
+    const media = await this.mediaRepository.findById(mediaId);
+    if (!media) {
+      throw new NotFoundException('Media not found');
+    }
+
+    // await this.checkPrivilegeToDeleteMedia(media, actorId);
+
+    if (media.status === MediaStatus.DELETE) {
+      // media ถูกลบไปแล้ว
+      return media;
+    }
+
+    // ลบไฟล์ออกจาก S3 จริง ๆ
+    await this.s3.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: media.key!,
+      }),
+    );
+
+    // mark เป็น deleted ไว้เป็นประวัติ
+    return this.mediaRepository.update(mediaId, {
+      status: MediaStatus.DELETE,
+    });
+  }
+
+  async getMediaInfo(params: { mediaId: string; actorId: string }) {
+    const { mediaId, actorId } = params;
+
+    if (!actorId) {
+      throw new BadRequestException('actorId is required to access media');
+    }
+
+    const media = await this.mediaRepository.findById(mediaId);
+    if (!media) {
+      throw new NotFoundException('Media not found');
+    }
+    if (!media.key) {
+      throw new InternalServerErrorException('Media key is missing');
+    }
+
+    await this.checkPrivilegeToAccessMedia(media, actorId);
+    if (media.status === MediaStatus.DELETE) {
+      throw new NotFoundException('Media not found');
+    }
+
+    return {
+      id: media?.id,
+      size: media?.size,
+      mimeType: media?.mimeType,
+      originalName: media?.originalName,
+      link: await this.getPresignedGetUrl(media.key),
+    };
+  }
 
   private resolveFolderFromPurpose(
     purpose: MediaPurpose,
