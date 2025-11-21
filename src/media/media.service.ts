@@ -98,8 +98,8 @@ export class MediaService {
 
     const needsStore =
       purpose === MediaPurpose.STORE_LAYOUT ||
-      purpose === MediaPurpose.STORE_GOODS ||
-      purpose === MediaPurpose.CLUB_APPLICATION
+      purpose === MediaPurpose.STORE_GOODS
+      // purpose === MediaPurpose.CLUB_APPLICATION
 
     if (needsStore) {
       if (!uploaderId) {
@@ -374,10 +374,10 @@ export class MediaService {
       }
 
       case MediaPurpose.CLUB_APPLICATION: {
-        if (!storeId) {
-          throw new BadRequestException('storeId is required for CLUB_APPLICATION media')
-        }
-        return `store/${storeId}/club-app`
+        // if (!storeId) {
+        //   throw new BadRequestException('storeId is required for CLUB_APPLICATION media')
+        // }
+        return `store/club-app`
       }
 
       case MediaPurpose.STORE_LAYOUT: {

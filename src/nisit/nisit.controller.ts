@@ -112,25 +112,4 @@ export class NisitController {
     }
     return nisitId;
   }
-
-  // @UseGuards(JwtAuthGuard)
-  // @Get('status')
-  // async status(@Body() payload: getAuthStatusRequestDto): Promise<getAuthStatusResponeDto> {
-
-  //   const record = await this.nisitService.findByEmail(payload.gmail);
-
-  //   if (!record) {
-  //     return { 
-  //       sub: payload.sub,
-  //       gmail: payload.gmail,
-  //       profileComplete: false,
-  //     };
-  //   }
-    
-  //   return {
-  //     sub: payload.sub,
-  //     gmail: payload.gmail,
-  //     profileComplete: true,
-  //   };
-  // }
 }
