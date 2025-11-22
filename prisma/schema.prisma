@@ -64,6 +64,12 @@ enum MediaStatus {
   DELETE
 }
 
+enum StoreQuestionType {
+  TEXT
+  SINGLE_SELECT
+  MULTI_SELECT
+}
+
 model ConsentText {
   id           String       @id @default(uuid())
   version      Int
@@ -175,6 +181,7 @@ model Store {
   goods   Goods[]
 
   memberAttemptEmails StoreMemberAttemptEmail[] @relation("Store_AttemptEmails")
+  questionAnswers     StoreQuestionAnswer[]
 
   @@index([type])
   @@index([state])
@@ -265,4 +272,37 @@ model Media {
   storeBooth      Store?   @relation("BoothMedia")
   good            Goods?   @relation("GoodMedia")
   @@map("medias")
+}
+
+model StoreQuestionTemplate {
+  id          Int                 @id @default(autoincrement())
+  key         String              @unique
+  label       String
+  description String?
+  type        StoreQuestionType
+  options     Json?
+  isActive    Boolean             @default(true)
+  order       Int?
+
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  answers     StoreQuestionAnswer[]
+  @@map("store_question_template")
+}
+
+model StoreQuestionAnswer {
+  id          Int                   @id @default(autoincrement())
+  storeId     Int
+  questionId  Int
+  value       Json
+
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  store       Store                 @relation(fields: [storeId], references: [id])
+  question    StoreQuestionTemplate @relation(fields: [questionId], references: [id])
+
+  @@unique([storeId, questionId])
+  @@map("store_question_answer")
 }

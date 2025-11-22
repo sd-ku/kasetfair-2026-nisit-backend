@@ -7,22 +7,27 @@ import { StoreController } from './controllers/store.controller';
 import { GoodController } from './controllers/store.good.controller';
 import { StoreDraftController } from './controllers/store.draft.controller';
 import { StoreClubInfoController } from './controllers/store.club-info.controller';
+import { StoreQuestionController } from './controllers/store.question.controller';
 import { StoreRepository } from './repositories/store.repository';
 import { StoreDraftRepository } from './repositories/store.draft.repository';
 import { StoreGoodRepository } from './repositories/store.good.repository';
+import { StoreQuestionRepository } from './repositories/store.question.repository';
 import { NisitModule } from 'src/nisit/nisit.module';
+import { StoreQuestionService } from './services/store.question.service';
 
 @Module({
   imports: [NisitModule],
-  controllers: [StoreController, StoreClubInfoController, GoodController, StoreDraftController],
+  controllers: [StoreController, StoreClubInfoController, GoodController, StoreDraftController, StoreQuestionController],
   providers: [
     StoreService,
     StoreClubInfoService,
     StoreDraftService,
     StoreGoodService,
+    StoreQuestionService,
     StoreRepository,
     StoreDraftRepository,
     StoreGoodRepository,
+    StoreQuestionRepository,
   ],
 })
 export class StoreModule {}
