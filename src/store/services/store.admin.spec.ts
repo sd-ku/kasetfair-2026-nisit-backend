@@ -1,19 +1,21 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { StoreDraftService } from './store.draft.service';
 import { StoreService } from './store.service';
-import { StoreState, StoreType } from '@generated/prisma';
+import { GoodsType, StoreState, StoreType } from '@generated/prisma';
 
 describe('Store admin handling', () => {
   describe('StoreDraftService.createForUser', () => {
     const baseRequest = {
       storeName: 'Kaset Fair Store',
       type: StoreType.Nisit,
+      goodType: GoodsType.Food,
       memberGmails: ['a@ku.th', 'b@ku.th'],
     };
     const baseStore = {
       id: 1,
       storeName: baseRequest.storeName,
       type: baseRequest.type,
+      goodType: baseRequest.goodType,
       state: StoreState.CreateStore,
       storeAdminNisitId: '123',
       members: [],

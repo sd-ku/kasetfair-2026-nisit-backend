@@ -1,4 +1,4 @@
-import { StoreType } from '@generated/prisma';
+import { GoodsType, StoreType } from '@generated/prisma';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -22,13 +22,21 @@ export class UpdateDraftStoreRequestDto {
   @Length(1, 255)
   storeName?: string;
 
-  @ApiPropertyOptional({
-    description: 'Change the store type.',
-    enum: StoreType,
-  })
-  @IsOptional()
-  @IsEnum(StoreType)
-  type?: StoreType;
+  // @ApiPropertyOptional({
+  //   description: 'Change the store type.',
+  //   enum: StoreType,
+  // })
+  // @IsOptional()
+  // @IsEnum(StoreType)
+  // type?: StoreType;
+
+  // @ApiPropertyOptional({
+  //   description: 'Change the goods type.',
+  //   enum: GoodsType,
+  // })
+  // @IsOptional()
+  // @IsEnum(GoodsType)
+  // goodType?: GoodsType;
 
   @ApiPropertyOptional({
     description: 'Complete list of store member emails (minimum 3).',
@@ -50,14 +58,14 @@ export class UpdateDraftStoreRequestDto {
   @IsEmail({}, { each: true })
   memberEmails?: string[];
 
-  @ApiPropertyOptional({
-    description: 'Media ID for the booth image.',
-    example: 'cmhuynglj0000dkp44jhs41kt',
-    nullable: true,
-  })
-  @IsOptional()
-  @IsString()
-  boothMediaId?: string | null;
+  // @ApiPropertyOptional({
+  //   description: 'Media ID for the booth image.',
+  //   example: 'cmhuynglj0000dkp44jhs41kt',
+  //   nullable: true,
+  // })
+  // @IsOptional()
+  // @IsString()
+  // boothMediaId?: string | null;
 }
 
 export class UpdateDraftStoreResponseDto {
@@ -77,6 +85,15 @@ export class UpdateDraftStoreResponseDto {
   @IsOptional()
   @IsEnum(StoreType)
   type: StoreType;
+
+  @ApiPropertyOptional({
+    description: 'Change the goods type.',
+    enum: GoodsType,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsEnum(GoodsType)
+  goodType: GoodsType | null;
 
   @ApiPropertyOptional({
     description: 'Complete list of store member emails (minimum 3).',
@@ -162,4 +179,12 @@ export class UpdateStoreRequestDto {
   @IsOptional()
   @IsString()
   boothMediaId?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Change the goods type.',
+    enum: GoodsType,
+  })
+  @IsOptional()
+  @IsEnum(GoodsType)
+  goodType?: GoodsType;
 }

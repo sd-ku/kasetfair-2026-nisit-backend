@@ -92,6 +92,7 @@ export class StoreRepository {
             storeName: true,
             boothNumber: true,
             type: true,
+            goodType: true,
             state: true,
             storeAdminNisitId: true,
           },

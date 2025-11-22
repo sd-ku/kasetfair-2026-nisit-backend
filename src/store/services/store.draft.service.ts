@@ -3,7 +3,7 @@ import { StoreService, READY_FOR_PENDING_STATES, PENDING_STATE } from './store.s
 import { StoreDraftRepository } from '../repositories/store.draft.repository';
 import { NisitService } from 'src/nisit/nisit.service';
 import { CreateStoreRequestDto, CreateStoreResponseDto, mapToCreateResponse } from '../dto/create-store.dto';
-import { Prisma, Store, StoreMemberStatus, StoreState, StoreType } from '@generated/prisma';
+import { GoodsType, Prisma, Store, StoreMemberStatus, StoreState, StoreType } from '@generated/prisma';
 import { UpdateDraftStoreRequestDto, UpdateDraftStoreResponseDto } from '../dto/update-store.dto';
 import { StoreResponseDto } from '../dto/store-response.dto';
 import { StorePendingValidationResponseDto } from '../dto/store-validation.dto';
@@ -70,13 +70,14 @@ export class StoreDraftService extends StoreService {
     if (missingEmails.length > 0) {
       state = StoreState.CreateStore;
     } else {
-      state = StoreState.StoreDetails;
+      state = StoreState.Pending;
     }
 
     // รวมข้อมูลเพื่อสร้างร้าน
     const storeData = {
       storeName: createDto.storeName.trim(),
       type: storeType,
+      // goodType: createDto.goodType ?? GoodsType.Food,
       state,
       storeAdmin: {
         connect: { nisitId }, // 👈 ใช้ relation connect
@@ -150,13 +151,13 @@ export class StoreDraftService extends StoreService {
       }
     }
 
-    if (dto.boothMediaId !== undefined) {
-      const boothMediaId =
-        typeof dto.boothMediaId === 'string' ? dto.boothMediaId.trim() : null;
-      if (boothMediaId) {
-        updateData.state = StoreState.ProductDetails;
-      }
-    }
+    // if (dto.boothMediaId !== undefined) {
+    //   const boothMediaId =
+    //     typeof dto.boothMediaId === 'string' ? dto.boothMediaId.trim() : null;
+    //   if (boothMediaId) {
+    //     updateData.state = StoreState.ProductDetails;
+    //   }
+    // }
 
     if (!shouldUpdateMembers && Object.keys(updateData).length === 0) {
       throw new BadRequestException('No fields provided to update.');
@@ -199,7 +200,7 @@ export class StoreDraftService extends StoreService {
 
     if (store.state === StoreState.CreateStore) {
       // return store.type === StoreType.Club ? StoreState.ClubInfo : StoreState.StoreDetails;
-      return StoreState.StoreDetails;
+      return StoreState.Pending;
     }
 
     return undefined;
@@ -287,6 +288,7 @@ export class StoreDraftService extends StoreService {
       select: {
         storeName: true,
         type: true,
+        goodType: true,
         boothMediaId: true,
         storeAdminNisitId: true,
         members: { select: { email: true } },
@@ -329,6 +331,7 @@ export class StoreDraftService extends StoreService {
     return {
       storeName: store.storeName,
       type: store.type,
+      goodType: store.goodType ?? null,
       memberEmails: Array.from(memberMap.values()).sort(sorter),
       missingProfileEmails: Array.from(missingMap.values()).sort(sorter),
       boothMediaId: store.boothMediaId ?? null,

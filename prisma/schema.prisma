@@ -28,7 +28,8 @@ enum StoreState {
   Submitted
 
   // หลังจากส่งแล้ว เข้าสู่สถานะหลัก
-  Pending // รอจับฉลาก
+  Pending // รอตรวจสอบ
+  Validated // ได้รับการตรวจสอบแล้ว รอจับฉลาก
   Success // ได้รับเลือก
   Rejected // ไม่ได้รับเลือก (ถ้ามี)
 }

@@ -270,6 +270,7 @@ export class StoreService {
       id: store.id,
       storeName: store.storeName,
       boothNumber: store.boothNumber ?? null,
+      goodType: store.goodType ?? null,
       type: store.type,
       state: store.state,
       storeAdminNisitId: store.storeAdminNisitId,
@@ -377,6 +378,7 @@ export class StoreService {
         id: updatedStore.id,
         storeName: updatedStore.storeName,
         boothNumber: updatedStore.boothNumber ?? null,
+        goodType: updatedStore.goodType ?? null,
         type: updatedStore.type,
         state: updatedStore.state,
         storeAdminNisitId: updatedStore.storeAdminNisitId,
@@ -403,6 +405,7 @@ export class StoreService {
       id: store.id,
       storeName: store.storeName,
       type: store.type,
+      goodType: store.goodType ?? null,
       state: store.state,
       storeAdminNisitId: store.storeAdminNisitId,
     }
@@ -615,13 +618,14 @@ export class StoreService {
     const data: Prisma.StoreUpdateInput = {};
     if (dto.storeName !== undefined) data.storeName = dto.storeName.trim();
     // if (dto.type !== undefined) data.type = dto.type;
-    if (dto.boothMediaId !== undefined) {
-      const boothMediaId =
-        typeof dto.boothMediaId === 'string' ? dto.boothMediaId.trim() : null;
-      data.boothMedia = boothMediaId
-        ? { connect: { id: boothMediaId } }
-        : { disconnect: true };
-    }
+    // if (dto.goodType !== undefined) data.goodType = dto.goodType;
+    // if (dto.boothMediaId !== undefined) {
+    //   const boothMediaId =
+    //     typeof dto.boothMediaId === 'string' ? dto.boothMediaId.trim() : null;
+    //   data.boothMedia = boothMediaId
+    //     ? { connect: { id: boothMediaId } }
+    //     : { disconnect: true };
+    // }
     return data;
   }
 

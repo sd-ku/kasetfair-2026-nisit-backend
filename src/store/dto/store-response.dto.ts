@@ -1,4 +1,4 @@
-import { StoreState, StoreType } from '@generated/prisma';
+import { GoodsType, StoreState, StoreType } from '@generated/prisma';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class StoreMemberDto {
@@ -18,6 +18,9 @@ export class StoreResponseDto {
 
   @ApiProperty()
   boothNumber: string | null;
+
+  @ApiProperty({ enum: GoodsType, nullable: true })
+  goodType: GoodsType | null;
 
   @ApiProperty({ enum: StoreType })
   type: StoreType;

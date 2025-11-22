@@ -1,5 +1,5 @@
-import { StoreState, StoreType } from '@generated/prisma';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { GoodsType, StoreState, StoreType } from '@generated/prisma';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class StoreStatusResponseDto {
   @ApiProperty({ example: 101 })
@@ -10,6 +10,9 @@ export class StoreStatusResponseDto {
 
   @ApiProperty({ enum: StoreType, example: StoreType.Nisit, readOnly: true })
   type: StoreType;
+
+  @ApiProperty({ enum: GoodsType, example: GoodsType.Food, nullable: true, readOnly: true })
+  goodType: GoodsType | null;
 
   @ApiProperty({ enum: StoreState, example: StoreState.StoreDetails, readOnly: true })
   state: StoreState;

@@ -1,5 +1,5 @@
-import { StoreState, StoreType } from '@generated/prisma';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { GoodsType, StoreState, StoreType } from '@generated/prisma';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMinSize,
   IsArray,
@@ -33,6 +33,13 @@ export class CreateStoreRequestDto {
   @IsEnum(StoreType)
   type: StoreType;
 
+  // @ApiProperty({
+  //   description: 'Goods type for the store.',
+  //   enum: GoodsType,
+  // })
+  // @IsEnum(GoodsType)
+  // goodType: GoodsType;
+
   @ApiProperty({
     description: 'Gmail of Member. at least 2 (sender will added in service)',
     example: ['a@ku.th', 'b@ku.th', 'c@ku.th'],
@@ -64,6 +71,9 @@ export class CreateStoreResponseDto {
 
   @ApiProperty({ enum: StoreType, example: StoreType.Nisit, readOnly: true })
   type: StoreType;
+
+  @ApiProperty({ enum: GoodsType, example: GoodsType.Food, readOnly: true })
+  goodType: GoodsType;
 
   @ApiProperty({ enum: StoreState, example: StoreState.StoreDetails, readOnly: true })
   state: StoreState;
@@ -102,6 +112,7 @@ export function mapToCreateResponse(store: Store, missingProfileEmails: string[]
     id: store.id,
     storeName: store.storeName,
     type: store.type,
+    goodType: store.goodType!,
     state: store.state,
     storeAdminNisitId: store.storeAdminNisitId,
     missingProfileEmails: missingProfileEmails,
