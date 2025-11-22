@@ -468,18 +468,17 @@ export class StoreService {
     return store.id;
   }
 
-  protected buildUpdateData(dto: UpdateDraftStoreRequestDto): Prisma.StoreUpdateInput {
+  protected buildUpdateData(dto: UpdateStoreRequestDto): Prisma.StoreUpdateInput {
     const data: Prisma.StoreUpdateInput = {};
     if (dto.storeName !== undefined) data.storeName = dto.storeName.trim();
-    // if (dto.type !== undefined) data.type = dto.type;
-    // if (dto.goodType !== undefined) data.goodType = dto.goodType;
-    // if (dto.boothMediaId !== undefined) {
-    //   const boothMediaId =
-    //     typeof dto.boothMediaId === 'string' ? dto.boothMediaId.trim() : null;
-    //   data.boothMedia = boothMediaId
-    //     ? { connect: { id: boothMediaId } }
-    //     : { disconnect: true };
-    // }
+    if (dto.goodType !== undefined) data.goodType = dto.goodType;
+    if (dto.boothMediaId !== undefined) {
+      const boothMediaId =
+        typeof dto.boothMediaId === 'string' ? dto.boothMediaId.trim() : null;
+      data.boothMedia = boothMediaId
+        ? { connect: { id: boothMediaId } }
+        : { disconnect: true };
+    }
     return data;
   }
 

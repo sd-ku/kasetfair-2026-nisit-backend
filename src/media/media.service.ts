@@ -258,8 +258,14 @@ export class MediaService {
     // ในที่นี้สมมติว่าเฉพาะ uploader เท่านั้นที่เข้าถึงได้
     switch (media.purpose) {
       case MediaPurpose.NISIT_CARD: {
-        if (media.createdBy !== actorId) {
-          throw new ForbiddenException('You do not have permission to access this media');
+        if (!media.createdBy) {
+          await this.mediaRepository.update(media.id, {
+            createdBy: actorId
+          });
+        } else {
+          if (media.createdBy !== actorId) {
+            throw new ForbiddenException('You do not have permission to access this media');
+          }
         }
         break;
       }
