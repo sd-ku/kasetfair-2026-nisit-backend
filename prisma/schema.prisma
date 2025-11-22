@@ -79,6 +79,18 @@ model ConsentText {
   @@map("consent_text")
 }
 
+model DormitoryType {
+  id        Int      @id @default(autoincrement())
+  label     String   @unique      // เช่น "ภายใน มก.", "ซอยพหลโยธิน 45 มก."
+  isActive  Boolean  @default(true)
+  order     Int?                   // เผื่ออยากจัดลำดับการแสดงผลหน้า UI
+  
+  // ใครใช้อ้างอิงบ้าง
+  residents Nisit[]
+  
+  @@map("dormitory_type")
+}
+
 model UserConsent {
   id              String      @id @default(uuid())
   nisitId         String
@@ -120,7 +132,10 @@ model Nisit {
   email             String  @unique @db.Citext
   nisitCardMediaId  String? @unique
   nisitCardMedia    Media?   @relation("NisitCardMedia", fields: [nisitCardMediaId], references: [id])
-  
+
+  dormitoryTypeId   Int?
+  dormitoryType     DormitoryType? @relation(fields: [dormitoryTypeId], references: [id], onDelete: SetNull)
+
   // เป็น admin ของร้าน (หนึ่งคนต่อหนึ่งร้าน)
   storeAdminOf      Store?  @relation("StoreAdmin")
 
@@ -141,6 +156,8 @@ model Store {
   boothNumber String?    @unique
   type        StoreType
   state       StoreState @default(CreateStore)
+
+  goodType    GoodsType?
 
   storeAdminNisitId String @unique
   storeAdmin        Nisit  @relation("StoreAdmin", fields: [storeAdminNisitId], references: [nisitId], onDelete: Cascade)

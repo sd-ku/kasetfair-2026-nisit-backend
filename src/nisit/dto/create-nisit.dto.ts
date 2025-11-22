@@ -5,7 +5,9 @@
   IsBoolean,
   Length,
   Matches,
+  IsInt,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateNisitRequestDto {
@@ -46,6 +48,17 @@ export class CreateNisitRequestDto {
   @IsOptional()
   @IsString()
   nisitCardMediaId?: string;
+
+  // ---------- หอพัก ----------
+
+  @ApiProperty({
+    description:
+      'รหัสประเภทหอพัก (ต้องเป็น id จากตาราง dormitory_type)',
+    example: 1,
+  })
+  @IsInt()
+  @Type(() => Number) // สำหรับแปลง string -> number อัตโนมัติเวลารับจาก query/body
+  dormitoryTypeId: number;
 
   // ---------- เพิ่มส่วน consent ----------
 

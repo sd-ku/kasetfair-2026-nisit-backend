@@ -33,6 +33,7 @@ export class NisitService {
         update: {
           phone: data.phone,
           email: data.email,
+          dormitoryTypeId: data.dormitoryTypeId,
           nisitCardMediaId: data.nisitCardMediaId
         },
         create: { 
@@ -41,6 +42,7 @@ export class NisitService {
           lastName: data.lastName,
           phone: data.phone,
           email: data.email,
+          dormitoryTypeId: data.dormitoryTypeId,
           nisitCardMediaId: data.nisitCardMediaId,
         }
       });
@@ -148,6 +150,7 @@ export class NisitService {
         lastName: dto.lastName.trim(),
         phone: dto.phone.trim(),
         email: this.normalizeEmail(dto.email),
+        dormitoryTypeId: dto.dormitoryTypeId,
         nisitCardMediaId: this.normalizeStringOrUndefined(dto.nisitCardMediaId),
       };
     } catch (error) {

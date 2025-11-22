@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { StoreModule } from './store/store.module';
 import { MediaModule } from './media/media.module';
 import { ConsentModule } from './consent/consent.module';
+import { DormitoryModule } from './dormitory/dormitory.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { ConsentModule } from './consent/consent.module';
     PrismaModule,
     StoreModule,
     MediaModule,
-    ConsentModule
+    ConsentModule,
+    DormitoryModule
   ],
   controllers: [AppController],
   providers: [AppService],
