@@ -1,58 +1,37 @@
-import { StoreState, StoreType } from '@generated/prisma';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+// store-validation.dto.ts
+
+import { StoreType, StoreState } from '@generated/prisma';
+
+export type StoreValidationSectionKey =
+  | 'members'
+  | 'clubInfo'
+  | 'storeDetail'
+  | 'goods';
 
 export class StoreValidationChecklistItemDto {
-  @ApiProperty({
-    description: 'Machine-friendly key of the requirement.',
-    example: 'members',
-  })
-  key: string;
+  key: string;        // unique key ภายใน section
+  label: string;      // ข้อความโชว์ใน UI
+  ok: boolean;        // ผ่าน / ไม่ผ่าน
+  message?: string;   // ถ้าไม่ผ่าน ใส่ข้อความอธิบาย
+}
 
-  @ApiProperty({
-    description: 'Short human-readable description.',
-    example: 'มีสมาชิกลงทะเบียนครบ 3 คน',
-  })
-  label: string;
-
-  @ApiProperty({
-    description: 'Indicates whether the requirement is satisfied.',
-    example: true,
-  })
-  ok: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Additional detail when the requirement fails.',
-    example: 'กรุณาเชิญและให้สมาชิกลงทะเบียนให้ครบ 3 คน',
-    nullable: true,
-  })
-  message?: string | null;
+export class StoreValidationSectionDto {
+  key: StoreValidationSectionKey;
+  label: string;                            // ชื่อหัวข้อใหญ่ เช่น "ข้อมูลร้านค้า"
+  ok: boolean;                              // ผลรวมของทั้ง section
+  items: StoreValidationChecklistItemDto[]; // รายการย่อย
 }
 
 export class StorePendingValidationResponseDto {
-  @ApiProperty({ example: 101 })
-  storeId: number;
+  store: {
+    id: number;
+    type: StoreType;
+    storeName: string;
+    state: StoreState;
+    boothNumber?: string | null;
+    storeAdminNisitId: string | null;
+  };
 
-  @ApiProperty({ enum: StoreType, example: StoreType.Nisit })
-  type: StoreType;
-
-  @ApiProperty({ enum: StoreState, example: StoreState.ProductDetails })
-  state: StoreState;
-
-  @ApiProperty({
-    description: 'Nisit ID of the store admin.',
-    example: '6400000001',
-  })
-  storeAdminNisitId: string;
-
-  @ApiProperty({
-    description: 'True when all checklist items pass validation.',
-    example: false,
-  })
-  isValid: boolean;
-
-  @ApiProperty({
-    type: StoreValidationChecklistItemDto,
-    isArray: true,
-  })
-  checklist: StoreValidationChecklistItemDto[];
+  isValid: boolean; // true = ไม่มี section ไหน ok=false
+  sections: StoreValidationSectionDto[];
 }

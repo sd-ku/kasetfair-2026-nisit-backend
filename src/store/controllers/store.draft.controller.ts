@@ -30,11 +30,9 @@ import { StoreResponseDto } from 'src/store/dto/store-response.dto';
 import { UpdateDraftStoreRequestDto } from 'src/store/dto/update-store.dto';
 import { StoreDraftService } from 'src/store/services/store.draft.service';
 import { StorePendingValidationResponseDto } from 'src/store/dto/store-validation.dto';
+import { DraftStep } from '../types/store.types';
 
 type AuthenticatedRequest = Request & { user };
-
-// store.types.ts
-export type DraftStep = 'create-store' | 'club-info' | 'store-details' | 'product-details'
 
 @ApiTags('Store')
 @ApiBearerAuth()
@@ -109,20 +107,5 @@ export class StoreDraftController {
     }
 
     return this.storeDraftService.getStoreDraft(store, nisitId)
-  }
-
-  @Get('mine/draft/commit')
-  @Header('Cache-Control', 'no-store')
-  @ApiOperation({ summary: 'Validate the current store before moving to pending state.' })
-  @ApiOkResponse({ type: StorePendingValidationResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  async validateBeforePending(
-    @Req() req: AuthenticatedRequest,
-  ): Promise<StorePendingValidationResponseDto> {
-    const nisitId = req.user?.nisitId;
-    if (!nisitId) {
-      throw new UnauthorizedException('Missing user context.');
-    }
-    return this.storeDraftService.commitStoreForPending(nisitId);
   }
 }

@@ -7,6 +7,7 @@ import { GoodsType, Prisma, Store, StoreMemberStatus, StoreState, StoreType } fr
 import { UpdateDraftStoreRequestDto, UpdateDraftStoreResponseDto } from '../dto/update-store.dto';
 import { StoreResponseDto } from '../dto/store-response.dto';
 import { StorePendingValidationResponseDto } from '../dto/store-validation.dto';
+import { StoreStatusResponseDto } from '../dto/store-state.dto'
 
 @Injectable()
 export class StoreDraftService extends StoreService {
@@ -193,6 +194,47 @@ export class StoreDraftService extends StoreService {
     }
   }
 
+  async getStoreDraft(store: StoreStatusResponseDto, nisitId: number) {
+
+    if (!store) throw new NotFoundException('Store not found');
+    const state = store.state
+    if (!state) {
+      throw new UnauthorizedException('Missing state context.')
+    }
+
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.')
+    }
+
+    if (state == "CreateStore") {
+      const memberEmails = await this.getStoreMemberEmailsByStoreId(store.id)
+      const storeDraft = {
+        ...store,
+        memberEmails: memberEmails
+      }
+      return storeDraft
+    } else if (state == "ClubInfo" && store.type == StoreType.Club) {
+      const clubInfo = await this.repo.findClubInfoByStoreId(store.id)
+      const storeDraft = {
+        ...store,
+        clubInfo: clubInfo?.clubInfo
+      }
+      return storeDraft
+    } else if (state == "StoreDetails") {
+      const layoutMediaId = await this.repo.findBoothMediaIdByStoreId(store.id)
+      const storeDraft = {
+        ...store,
+        boothMediaId: layoutMediaId
+      }
+      return storeDraft
+    } else if (state == "ProductDetails") {
+      const storeDraft = {
+        ...store,
+      }
+      return storeDraft;
+    }
+  }
+
   private resolveStateAfterMemberUpdate(store: Store, noMissingMembers: boolean): StoreState | undefined {
     if (!noMissingMembers) {
       return store.state === StoreState.CreateStore ? StoreState.CreateStore : undefined;
@@ -205,82 +247,6 @@ export class StoreDraftService extends StoreService {
 
     return undefined;
   }
-
-  // private async syncMembersAndAttemptsTx(
-  //   tx: Prisma.TransactionClient,
-  //   params: {
-  //     storeId: number;
-  //     foundMembers: Array<{ nisitId: string; email: string | null; storeId: number | null }>;
-  //     missingEmails: string[];
-  //   },
-  // ): Promise<void> {
-  //   const desiredMemberIds = new Set(params.foundMembers.map((member) => member.nisitId));
-  //   const currentMembers = await tx.nisit.findMany({
-  //     where: { storeId: params.storeId },
-  //     select: { nisitId: true },
-  //   });
-
-  //   const membersToRemove = currentMembers
-  //     .filter((member) => !desiredMemberIds.has(member.nisitId))
-  //     .map((member) => member.nisitId);
-
-  //   if (membersToRemove.length) {
-  //     await tx.nisit.updateMany({
-  //       where: { nisitId: { in: membersToRemove } },
-  //       data: { storeId: null },
-  //     });
-  //   }
-
-  //   const membersToAttach = params.foundMembers
-  //     .filter((member) => member.storeId !== params.storeId)
-  //     .map((member) => member.nisitId);
-
-  //   if (membersToAttach.length) {
-  //     await tx.nisit.updateMany({
-  //       where: { nisitId: { in: membersToAttach } },
-  //       data: { storeId: params.storeId },
-  //     });
-  //   }
-
-  //   const attempts = await tx.storeMemberAttemptEmail.findMany({
-  //     where: { storeId: params.storeId },
-  //     select: { id: true, email: true },
-  //   });
-
-  //   const missingSet = new Set(
-  //     params.missingEmails.map((email) => email.trim().toLowerCase()).filter((email) => email.length > 0),
-  //   );
-
-  //   const attemptsToDelete = attempts
-  //     .filter((attempt) => {
-  //       const normalized = attempt.email?.trim().toLowerCase();
-  //       return !normalized || !missingSet.has(normalized);
-  //     })
-  //     .map((attempt) => attempt.id);
-
-  //   if (attemptsToDelete.length) {
-  //     await tx.storeMemberAttemptEmail.deleteMany({
-  //       where: { id: { in: attemptsToDelete } },
-  //     });
-  //   }
-
-  //   const existingAttemptEmails = new Set(
-  //     attempts.map((attempt) => attempt.email?.trim().toLowerCase()).filter((email) => email && email.length > 0) as string[],
-  //   );
-
-  //   const attemptsToCreate = params.missingEmails.filter((email) => !existingAttemptEmails.has(email));
-  //   if (attemptsToCreate.length) {
-  //     const now = new Date();
-  //     await tx.storeMemberAttemptEmail.createMany({
-  //       data: attemptsToCreate.map((email) => ({
-  //         storeId: params.storeId,
-  //         email,
-  //         status: StoreMemberStatus.NotFound,
-  //         invitedAt: now,
-  //       })),
-  //     });
-  //   }
-  // }
 
   private async buildDraftUpdateResponse(storeId: number): Promise<UpdateDraftStoreResponseDto> {
     const store = await this.draftRepo.client.store.findUnique({
@@ -336,38 +302,6 @@ export class StoreDraftService extends StoreService {
       missingProfileEmails: Array.from(missingMap.values()).sort(sorter),
       boothMediaId: store.boothMediaId ?? null,
       storeAdminNisitId: store.storeAdminNisitId,
-    };
-  }
-
-  async commitStoreForPending(nisitId: string): Promise<StorePendingValidationResponseDto> {
-    const validation = await this.validateStoreForPending(nisitId);
-
-    if (!validation.isValid) {
-      return validation;
-    }
-
-    const storeSummary = await this.draftRepo.findStoreByNisitId(nisitId);
-    if (!storeSummary) {
-      throw new NotFoundException('Store not found.');
-    }
-
-    const ready = READY_FOR_PENDING_STATES.includes(storeSummary.state);
-    if (!ready) {
-      return {
-        ...validation,
-        isValid: false,
-        state: storeSummary.state,
-      };
-    }
-
-    const updated = await this.draftRepo.updateStore(storeSummary.id, {
-      state: PENDING_STATE,
-    });
-
-    return {
-      ...validation,
-      isValid: true,
-      state: updated.state,
     };
   }
 }

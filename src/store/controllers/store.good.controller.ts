@@ -26,13 +26,9 @@ import {
 import type { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { StoreGoodService } from 'src/store/services/store.good.service';
-import { user } from 'src/auth/entities/access-token.entity'
 import { CreateGoodDto, GoodsResponseDto, UpdateGoodDto } from 'src/store/dto/goods.dto';
 
 type AuthenticatedRequest = Request & { user };
-
-// store.types.ts
-export type DraftStep = 'create-store' | 'club-info' | 'store-details' | 'product-details'
 
 @ApiTags('Store')
 @ApiBearerAuth()
