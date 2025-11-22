@@ -100,4 +100,18 @@ export class StoreController {
 
     return this.storeService.validateStoreForPending(nisitId)
   }
+
+  @Patch("mine/transfer-admin")
+  async transferStoreAdmin(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto,
+  ) {
+    const nisitId = req.user?.nisitId;
+    if (!nisitId) {
+      throw new UnauthorizedException('Missing user context.');
+    }
+
+    return this.storeService.transferStoreAdmin(nisitId, dto);
+  }
+
 }

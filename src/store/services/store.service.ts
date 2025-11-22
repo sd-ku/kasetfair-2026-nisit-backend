@@ -39,6 +39,62 @@ export class StoreService {
     protected readonly nisitService: NisitService
   ) {}
 
+  async transferStoreAdmin(adminId: string, dto: { transferId?: string }) {
+    // หา store ของ admin คนนี้ก่อน + เช็คสิทธิ์ขั้นต้น
+    const storeId = await this.ensureStoreAndPermissionIdForNisit(adminId);
+
+    const store = await this.repo.findStoreById(storeId);
+    if (!store) {
+      throw new NotFoundException('ไม่พบร้านที่ต้องการโอนสิทธิ์');
+    }
+
+    // กันเคสมี token แต่ไม่ใช่ admin ร้านนี้
+    if (store.storeAdminNisitId !== adminId) {
+      throw new ForbiddenException('เฉพาะผู้ดูแลร้านเท่านั้นที่สามารถโอนสิทธิ์ผู้ดูแลได้');
+    }
+
+    const transferId = dto.transferId;
+    if (!transferId) {
+      throw new BadRequestException('กรุณาระบุรหัสนิสิตของผู้ที่จะรับสิทธิ์ผู้ดูแลร้าน');
+    }
+
+    if (typeof transferId !== 'string') {
+      throw new BadRequestException('ค่า nisitId ต้องเป็นสตริง');
+    }
+
+    const storeAdminNisitId = transferId.trim();
+    if (!storeAdminNisitId) {
+      throw new BadRequestException('ค่า nisitId ไม่สามารถเป็นสตริงว่างได้');
+    }
+
+    // กันโอนให้ตัวเอง (จะทำก็ได้ แต่ปกติถือว่าไม่ make sense)
+    if (storeAdminNisitId === adminId) {
+      throw new BadRequestException('ไม่สามารถโอนสิทธิ์ผู้ดูแลให้ตัวเองได้');
+    }
+
+    // เช็คว่าผู้รับสิทธิ์มีตัวตน และอยู่ร้านนี้จริง
+    const targetNisit = await this.repo.client.nisit.findUnique({
+      where: { nisitId: storeAdminNisitId },
+      select: { nisitId: true, storeId: true },
+    });
+
+    if (!targetNisit) {
+      throw new NotFoundException('ไม่พบนิสิตที่ต้องการโอนสิทธิ์');
+    }
+
+    if (targetNisit.storeId !== storeId) {
+      throw new BadRequestException('ผู้รับสิทธิ์ต้องเป็นสมาชิกของร้านนี้ก่อน');
+    }
+
+    const data: Prisma.StoreUpdateInput = {};
+    data.storeAdmin = {
+      connect: { nisitId: storeAdminNisitId },
+    };
+    await this.repo.updateStore(storeId, data);
+
+    return { storeAdminNisitId: transferId };
+  }
+
 
   async leaveMyStore(nisitId: string): Promise<void> {
     if (!nisitId) {
@@ -62,33 +118,13 @@ export class StoreService {
     }
 
     const isAdmin = store.storeAdminNisitId === nisit.nisitId;
+    if (isAdmin) {
+      throw new BadRequestException(
+        'คุณเป็นผู้ดูแลร้าน ไม่สามารถออกจากร้านได้ กรุณาโอนสิทธิ์ผู้ดูแลให้สมาชิกคนอื่นก่อน',
+      );
+    }
 
     await this.repo.client.$transaction(async (tx) => {
-      if (isAdmin) {
-        // เลือกสมาชิกคนอื่นมาเป็น admin แทน
-        const otherMembers = store.members.filter(
-          (m) => m.nisitId !== nisit.nisitId,
-        );
-
-        if (otherMembers.length === 0) {
-          // ไม่มีคนให้โอน admin → ยังไม่ให้แอดมินออก
-          throw new BadRequestException(
-            'คุณเป็นผู้ดูแลร้านคนเดียวในร้าน ไม่สามารถออกได้ในขณะนี้',
-          );
-        }
-
-        const successor = otherMembers[0]; // ตอนนี้เอาคนแรกไปก่อน เดี๋ยวอนาคตค่อยเปลี่ยนเป็นเลือกเอง
-
-        // โอนสิทธิ์ admin ให้ successor
-        await tx.store.update({
-          where: { id: store.id },
-          data: {
-            storeAdminNisitId: successor.nisitId,
-          },
-        });
-      }
-
-      // ตัดความสัมพันธ์ของคนที่ออก
       await tx.nisit.update({
         where: { nisitId: nisit.nisitId },
         data: { storeId: null },
@@ -135,14 +171,15 @@ export class StoreService {
     if (!nisitId) {
       throw new UnauthorizedException('Missing user context.');
     }
-    if ((dto as any)?.storeAdminNisitId !== undefined) {
-      throw new ForbiddenException('Store admin cannot be changed.');
-    }
-
+    
     const storeId = await this.ensureStoreAndPermissionIdForNisit(nisitId);
     const store = await this.repo.findStoreById(storeId);
     if (!store) {
       throw new NotFoundException('Store not found.');
+    }
+    
+    if (store.storeAdminNisitId !== nisitId) {
+      throw new ForbiddenException('เฉพาะผู้ดูแลร้านเท่านั้นที่สามารถแก้ไขร้านได้');
     }
 
     const updateData = this.buildUpdateData(dto);

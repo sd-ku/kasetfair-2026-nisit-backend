@@ -20,13 +20,17 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { GoogleAuthService } from '../services/google-auth.service';
+import { AuthService } from '../services/auth.service';
 import { ExchangeDto, ExchangeResponeDto } from '../dto/exchange.dto';
 import { getAuthStatusRequestDto } from '../../nisit/dto/status.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly googleAuthService: GoogleAuthService) {}
+  constructor(
+    private readonly googleAuthService: GoogleAuthService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Post('exchange')
   @HttpCode(200)
@@ -57,5 +61,13 @@ export class AuthController {
   ): Promise<ExchangeResponeDto> {
     const result = await this.googleAuthService.exchange({ authHeader, body, res });
     return result;
+  }
+
+  @Post('logout')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Logout and clear authentication cookies.' })
+  @ApiOkResponse({ description: 'Auth cookies cleared.' })
+  logout(@Res({ passthrough: true }) res: Response) {
+    return this.authService.clearAuthCookie(res);
   }
 }

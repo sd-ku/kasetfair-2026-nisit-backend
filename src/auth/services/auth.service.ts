@@ -85,6 +85,17 @@ export class AuthService {
     });
   }
 
+  public clearAuthCookie(res?: Response) {
+    if (!res) return {success: false};
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+    return {success: true}
+  }
+
   public mintServerToken(
     user: { 
       sub: string;
