@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { StoreDraftService } from './store.draft.service';
 import { StoreService } from './store.service';
-import { GoodsType, StoreState, StoreType } from '@generated/prisma';
+import { GoodsType, StoreState, StoreType } from '@prisma/client';
 
 describe('Store admin handling', () => {
   describe('StoreDraftService.createForUser', () => {

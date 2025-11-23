@@ -28,20 +28,15 @@ services:
     env_file:
       - .env
     environment:
-      # ตัวอย่าง DATABASE_URL แบบ TypeORM/Prisma ใช้ได้เหมือนกัน
-      DATABASE_URL: ${DATABASE_URL:-postgresql://appuser:apppass@db:5432/appdb}
+      # Use the service hostname inside the Docker network, not localhost
+      DATABASE_URL: "postgresql://appuser:apppass@db:5432/appdb?schema=public"
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${PORT:-8000}
     ports:
       - "${PORT:-8000}:8000"
-      # เปิด debug ถ้าต้องการ: - "9229:9229"
     depends_on:
       db:
         condition: service_healthy
-    # ถ้าเป็น dev แล้วอยาก hot-reload ให้ bind mount โค้ดเข้าไป:
-    # volumes:
-    #   - ./:/app
-    # command: npm run start:dev
 
   pgadmin:
     image: dpage/pgadmin4:8

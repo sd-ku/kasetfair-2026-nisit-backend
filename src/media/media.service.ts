@@ -5,7 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { Media, MediaPurpose, MediaStatus } from '@generated/prisma';
+import { Media, MediaPurpose, MediaStatus } from '@prisma/client';
 import { promises as fsp } from 'fs';
 import * as path from 'path';
 import { MediaRepository } from './media.repository';

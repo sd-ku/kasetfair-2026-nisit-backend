@@ -7,7 +7,7 @@ import {
   Store,
   StoreMemberAttemptEmail,
   StoreMemberStatus,
-} from '@generated/prisma';
+} from '@prisma/client';
 
 type CreateWithMembersAndAttemptsInput = {
   storeData: Prisma.StoreCreateInput;

@@ -8,7 +8,7 @@ import {
   Nisit,
   StoreType,
   StoreState,
-} from '@generated/prisma';
+} from '@prisma/client';
 
 // Payload สำหรับ clubInfo ที่ใช้ร่วมกันหลายฟังก์ชัน
 type ClubInfoPayload = {

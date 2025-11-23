@@ -19,9 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
-    "prisma:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
-    "db:seed": "prisma db seed",
-    "dev:migrate": "prisma migrate dev && prisma db seed"
+    "prisma:migrate": "prisma migrate dev --schema=prisma/schema.prisma"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.936.0",
@@ -46,6 +44,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "express": "^5.1.0",
     "google-auth-library": "^10.5.0",
     "googleapis": "^164.1.0",
     "helmet": "^8.1.0",

@@ -5,6 +5,12 @@ datasource db {
 
 generator client {
   provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+// Secondary client output for Docker image to consume from /generated/prisma
+generator clientGenerated {
+  provider        = "prisma-client-js"
   output          = "../generated/prisma"
   previewFeatures = ["postgresqlExtensions"]
 }

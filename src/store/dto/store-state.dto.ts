@@ -1,4 +1,4 @@
-import { GoodsType, StoreState, StoreType } from '@generated/prisma';
+import { GoodsType, StoreState, StoreType } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class StoreStatusResponseDto {

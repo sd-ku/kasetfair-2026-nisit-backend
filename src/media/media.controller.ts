@@ -19,7 +19,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { MediaService } from './media.service'
 import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { CreateMediaDto } from './dto/create-media.dto';
-import { MediaPurpose } from '@generated/prisma';
+import { MediaPurpose } from '@prisma/client';
 import { content } from 'googleapis/build/src/apis/content';
 import { CreateMediaPresignDto } from './dto/create-presign.dto';
 import { ConfirmS3UploadDto } from './dto/confirm-s3-upload.dto';

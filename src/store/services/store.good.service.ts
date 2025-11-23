@@ -3,7 +3,7 @@ import { StoreService } from './store.service';
 import { StoreGoodRepository } from '../repositories/store.good.repository';
 import { NisitService } from 'src/nisit/nisit.service';
 import { GoodsResponseDto, CreateGoodDto, UpdateGoodDto } from '../dto/goods.dto';
-import { Goods } from '@generated/prisma';
+import { Goods } from '@prisma/client';
 
 @Injectable()
 export class StoreGoodService extends StoreService {

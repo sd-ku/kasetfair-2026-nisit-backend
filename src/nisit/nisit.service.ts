@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Nisit, Prisma } from '@generated/prisma';
+import { Nisit, Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ConsentService } from 'src/consent/consent.service';
 import { CreateNisitRequestDto } from './dto/create-nisit.dto';

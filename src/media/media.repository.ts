@@ -5,7 +5,7 @@ import {
   Store,
   Nisit,
   Media,
-} from '@generated/prisma';
+} from '@prisma/client';
 
 export type MediaWithStoreAdmin = Prisma.MediaGetPayload<{
   include: {

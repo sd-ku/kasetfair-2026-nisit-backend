@@ -7,7 +7,7 @@ import {
   Prisma,
   StoreQuestionTemplate,
   StoreQuestionType,
-} from '@generated/prisma';
+} from '@prisma/client';
 import { NisitService } from 'src/nisit/nisit.service';
 import {
   CreateStoreQuestionTemplateDto,

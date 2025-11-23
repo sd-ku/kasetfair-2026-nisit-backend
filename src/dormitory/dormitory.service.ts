@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DormitoryType, Prisma } from '@generated/prisma';
+import { DormitoryType, Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateDormitoryDto } from './dto/create-dormitory.dto';
 import { UpdateDormitoryDto } from './dto/update-dormitory.dto';

@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { StoreState, StoreType } from '@generated/prisma';
+import { StoreState, StoreType } from '@prisma/client';
 import { StoreRepository } from '../repositories/store.repository';
 import { NisitService } from 'src/nisit/nisit.service';
 import { UpdateClubInfoRequestDto } from '../dto/update-clubInfo.dto';

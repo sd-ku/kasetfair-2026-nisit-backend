@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, StoreQuestionTemplate } from '@generated/prisma';
+import { Prisma, StoreQuestionTemplate } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StoreRepository } from './store.repository';
 

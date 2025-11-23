@@ -1,4 +1,4 @@
-import { GoodsType, StoreState, StoreType } from '@generated/prisma';
+import { GoodsType, StoreState, StoreType } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMinSize,
@@ -14,7 +14,7 @@ import {
 import { Transform } from 'class-transformer';
 import {
   Store,
-} from '@generated/prisma';
+} from '@prisma/client';
 
 export class CreateStoreRequestDto {
   @ApiProperty({

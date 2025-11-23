@@ -1,5 +1,5 @@
 import { IsEnum } from 'class-validator';
-import { MediaPurpose } from '@generated/prisma';
+import { MediaPurpose } from '@prisma/client';
 
 export class CreateMediaDto {
   @IsEnum(MediaPurpose)

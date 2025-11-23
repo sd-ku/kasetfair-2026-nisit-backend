@@ -1,4 +1,4 @@
-import { GoodsType, StoreType } from '@generated/prisma';
+import { GoodsType, StoreType } from '@prisma/client';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {

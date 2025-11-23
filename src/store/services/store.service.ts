@@ -14,12 +14,12 @@ import {
   Store,
   StoreState,
   StoreType,
-} from '@generated/prisma';
+} from '@prisma/client';
 import { UpdateDraftStoreRequestDto, UpdateDraftStoreResponseDto, UpdateStoreRequestDto } from '../dto/update-store.dto';
 import { StoreResponseDto } from '../dto/store-response.dto';
 import { StoreRepository } from '../repositories/store.repository';
 import { StoreStatusResponseDto } from '../dto/store-state.dto'
-import { StoreMemberStatus } from '@generated/prisma'
+import { StoreMemberStatus } from '@prisma/client'
 import { NisitService } from 'src/nisit/nisit.service';
 import { StorePendingValidationResponseDto, StoreValidationChecklistItemDto, StoreValidationSectionDto } from '../dto/store-validation.dto';
 

@@ -3,7 +3,7 @@ import { StoreService, READY_FOR_PENDING_STATES, PENDING_STATE } from './store.s
 import { StoreDraftRepository } from '../repositories/store.draft.repository';
 import { NisitService } from 'src/nisit/nisit.service';
 import { CreateStoreRequestDto, CreateStoreResponseDto, mapToCreateResponse } from '../dto/create-store.dto';
-import { GoodsType, Prisma, Store, StoreMemberStatus, StoreState, StoreType } from '@generated/prisma';
+import { GoodsType, Prisma, Store, StoreMemberStatus, StoreState, StoreType } from '@prisma/client';
 import { UpdateDraftStoreRequestDto, UpdateDraftStoreResponseDto } from '../dto/update-store.dto';
 import { StoreResponseDto } from '../dto/store-response.dto';
 import { StorePendingValidationResponseDto } from '../dto/store-validation.dto';

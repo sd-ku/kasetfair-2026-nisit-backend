@@ -1,6 +1,6 @@
 // store-validation.dto.ts
 
-import { StoreType, StoreState } from '@generated/prisma';
+import { StoreType, StoreState } from '@prisma/client';
 
 export type StoreValidationSectionKey =
   | 'members'

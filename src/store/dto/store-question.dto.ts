@@ -1,4 +1,4 @@
-import { StoreQuestionType } from '@generated/prisma';
+import { StoreQuestionType } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
