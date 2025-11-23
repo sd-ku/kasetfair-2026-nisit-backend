@@ -101,16 +101,21 @@ export class StoreService {
       throw new UnauthorizedException('Missing user context.');
     }
 
-    // หานิสิต + เช็คว่ามีร้านมั้ย
+    // 1) หานิสิต + ต้องมีร้าน
     const nisit = await this.repo.findNisitByNisitId(nisitId);
     if (!nisit?.storeId) {
-      throw new BadRequestException('You are not a member of any store.');
+      throw new BadRequestException('คุณยังไม่ได้เป็นสมาชิกของร้าน');
     }
 
-    // โหลดร้านพร้อมสมาชิกทั้งหมด
+    // 2) โหลดร้าน + สมาชิก (เอาเฉพาะที่จำเป็น)
     const store = await this.repo.client.store.findUnique({
       where: { id: nisit.storeId },
-      include: { members: true },
+      select: {
+        id: true,
+        storeAdminNisitId: true,
+        members: { select: { nisitId: true } },
+        state: true,
+      },
     });
 
     if (!store) {
@@ -118,18 +123,42 @@ export class StoreService {
     }
 
     const isAdmin = store.storeAdminNisitId === nisit.nisitId;
-    if (isAdmin) {
+    const memberCount = store.members.length;
+
+    // 3) ถ้าเป็นแอดมินและยังมีสมาชิกคนอื่นอยู่ ห้ามออก
+    //    (ต้องโอนสิทธิ์ก่อน) แต่ถ้าเป็นคนสุดท้าย อนุญาตให้ออกและปิดร้าน
+    if (isAdmin && memberCount > 1) {
       throw new BadRequestException(
         'คุณเป็นผู้ดูแลร้าน ไม่สามารถออกจากร้านได้ กรุณาโอนสิทธิ์ผู้ดูแลให้สมาชิกคนอื่นก่อน',
       );
     }
 
+    // 4) ทำทุกอย่างในทรานแซกชันเดียว ป้องกัน race condition
     await this.repo.client.$transaction(async (tx) => {
+      // 4.1) เอา nisit ออกจากร้าน
       await tx.nisit.update({
         where: { nisitId: nisit.nisitId },
         data: { storeId: null },
       });
+
+      // 4.2) นับสมาชิกที่เหลือหลังจากออกจริง ๆ (ต้องนับใน tx)
+      const remaining = await tx.nisit.count({
+        where: { storeId: store.id },
+      });
+
+      // 4.3) ถ้าเหลือ 0 → ปิดร้าน (soft delete)
+      if (remaining === 0) {
+        await tx.store.update({
+          where: { id: store.id },
+          data: {
+            state: StoreState.deleted,
+            storeAdmin: { disconnect: true },
+          },
+        });
+      }
     });
+
+    // ไม่มี return อะไรเป็นพิเศษ
   }
 
   async getMyStore(nisitId: string): Promise<StoreResponseDto> {
@@ -147,6 +176,12 @@ export class StoreService {
 
     if (!store) {
       throw new NotFoundException('Store not found.');
+    }
+
+    if (!store.storeAdminNisitId) {
+      throw new BadRequestException(
+        'ร้านนี้ไม่มีผู้ดูแล กรุณาออกจากร้านเพื่อสร้างร้านใหม่'
+      );
     }
 
     return {
@@ -258,6 +293,12 @@ export class StoreService {
         throw new NotFoundException('Store not found after update.');
       }
 
+      if (!updatedStore.storeAdminNisitId) {
+        throw new BadRequestException(
+          'ร้านนี้ไม่มีผู้ดูแล กรุณาออกจากร้านเพื่อสร้างร้านใหม่'
+        );
+      }
+
       return {
         id: updatedStore.id,
         storeName: updatedStore.storeName,
@@ -265,7 +306,7 @@ export class StoreService {
         goodType: updatedStore.goodType ?? null,
         type: updatedStore.type,
         state: updatedStore.state,
-        storeAdminNisitId: updatedStore.storeAdminNisitId,
+        storeAdminNisitId: updatedStore.storeAdminNisitId!,
         members: this.mergeStoreMembers(
           updatedStore.members ?? [],
           updatedStore.memberAttemptEmails ?? [],
@@ -283,6 +324,10 @@ export class StoreService {
     const store = await this.repo.findStoreByNisitId(nisitId);
     if (!store) {
       throw new NotFoundException('Store not found.');
+    }
+
+    if (!store.storeAdminNisitId) {
+      throw new NotFoundException("ไม่เจอผู้ดูแลร้าน กรุณาออกจากร้านเพื่อสร้างร้านใหม่")
     }
     
     const storeStatus = {

@@ -301,7 +301,7 @@ export class StoreDraftService extends StoreService {
       memberEmails: Array.from(memberMap.values()).sort(sorter),
       missingProfileEmails: Array.from(missingMap.values()).sort(sorter),
       boothMediaId: store.boothMediaId ?? null,
-      storeAdminNisitId: store.storeAdminNisitId,
+      storeAdminNisitId: store.storeAdminNisitId!,
     };
   }
 }

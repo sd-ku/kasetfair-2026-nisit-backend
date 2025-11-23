@@ -181,15 +181,6 @@ export class UpdateStoreRequestDto {
   boothMediaId?: string | null;
 
   @ApiPropertyOptional({
-    description: 'สำหรับการถ่ายโอนสิทธิ์ admin',
-    example: '6510503531',
-    nullable: true,
-  })
-  @IsOptional()
-  @IsString()
-  storeAdminNisitId?: string | null;
-
-  @ApiPropertyOptional({
     description: 'Change the goods type.',
     enum: GoodsType,
   })

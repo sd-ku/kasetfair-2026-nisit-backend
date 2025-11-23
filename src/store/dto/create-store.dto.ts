@@ -114,7 +114,7 @@ export function mapToCreateResponse(store: Store, missingProfileEmails: string[]
     type: store.type,
     goodType: store.goodType!,
     state: store.state,
-    storeAdminNisitId: store.storeAdminNisitId,
+    storeAdminNisitId: store.storeAdminNisitId!,
     missingProfileEmails: missingProfileEmails,
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,

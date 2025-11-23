@@ -32,6 +32,8 @@ enum StoreState {
   Validated // ได้รับการตรวจสอบแล้ว รอจับฉลาก
   Success // ได้รับเลือก
   Rejected // ไม่ได้รับเลือก (ถ้ามี)
+
+  deleted
 }
 
 /**
@@ -166,8 +168,8 @@ model Store {
 
   goodType    GoodsType?
 
-  storeAdminNisitId String @unique
-  storeAdmin        Nisit  @relation("StoreAdmin", fields: [storeAdminNisitId], references: [nisitId], onDelete: Cascade)
+  storeAdminNisitId String? @unique
+  storeAdmin        Nisit?  @relation("StoreAdmin", fields: [storeAdminNisitId], references: [nisitId], onDelete: Cascade)
 
   clubInfo    ClubInfo?
 

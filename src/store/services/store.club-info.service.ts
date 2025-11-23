@@ -78,7 +78,6 @@ export class StoreClubInfoService extends StoreService {
         "leaderEmail",
         "leaderPhone",
         "leaderNisitId",
-        "clubApplicationMediaId",
       ] as (keyof typeof updated.clubInfo)[]);
 
       // ขยับ state เฉพาะกรณี:
@@ -142,7 +141,7 @@ export class StoreClubInfoService extends StoreService {
         'leaderEmail',
         'leaderPhone',
         'leaderNisitId',
-        'clubApplicationMediaId',
+        // 'clubApplicationMediaId',
       ] as (keyof typeof clubInfo)[]);
       
       let finalStore = store
