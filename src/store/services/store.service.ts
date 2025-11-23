@@ -32,6 +32,12 @@ type MemberEmailStatus = {
   status: 'joined' | StoreMemberStatus
 }
 
+type KnownReqErr = {
+  code: string;
+  meta?: any;
+  message?: string;
+};
+
 @Injectable()
 export class StoreService {
   constructor(
@@ -661,21 +667,62 @@ export class StoreService {
     }
   }
 
+  protected extractTargets(error: KnownReqErr): string[] {
+    const out: string[] = [];
+    const m = error.meta ?? {};
+
+    // Prisma ชอบใส่ target ได้หลายรูปแบบ ขอสแกนหลายจุด
+    const candidates: any[] = [
+      m.target,                 // string | string[] | { fields: string[] } (บาง adapter)
+      m.fields,                 // บางเวอร์ชัน
+      m.field_name,             // บางกรณี P2003
+      m.constraint?.fields,     // adapter pg
+    ].filter(Boolean);
+
+    for (const c of candidates) {
+      if (Array.isArray(c)) out.push(...c.map(String));
+      else if (typeof c === 'string') out.push(c);
+      else if (c && Array.isArray(c.fields)) out.push(...c.fields.map(String));
+    }
+
+    // เผื่อไม่มี meta ที่มีประโยชน์ ลองเดาด้วย constraint name / message
+    const raw = (m?.constraint?.name as string | undefined) ?? error.message ?? '';
+    // ดึง field แบบง่าย ๆ จากชื่อ index เช่น "store_storeName_key"
+    if (raw) {
+      const lower = raw.toLowerCase();
+      if (lower.includes('storename')) out.push('storeName');
+      if (lower.includes('boothnumber')) out.push('boothNumber');
+      if (lower.includes('storeadminnisitid')) out.push('storeAdminNisitId');
+    }
+
+    // normalize + unique
+    return Array.from(new Set(out.map((t) => String(t).trim())));
+  }
+
   protected transformPrismaError(error: unknown): Error {
     // จัดการเฉพาะ Prisma error ที่รู้จักก่อน
     if (this.isPrismaKnownRequestError(error)) {
       switch (error.code) {
         // unique constraint
         case 'P2002': {
-          const rawTarget = error.meta?.target as string | string[] | undefined;
+          const targets = this.extractTargets(error).map((t) => t.toLowerCase());
 
-          const target = Array.isArray(rawTarget)
-            ? rawTarget.join(', ')
-            : rawTarget ?? 'unique constraint';
+          if (targets.some((t) => t.includes('storename'))) {
+            // ข้อความ user-facing
+            return new BadRequestException('มีชื่อร้านนี้อยู่ในระบบแล้ว โปรดใช้ชื่ออื่น');
+          }
+          if (targets.some((t) => t.includes('boothnumber'))) {
+            return new BadRequestException('หมายเลขบูธนี้ถูกใช้แล้ว โปรดเลือกหมายเลขอื่น');
+          }
+          if (targets.some((t) => t.includes('storeadminnisitid'))) {
+            // ธรรมชาติเป็น conflict ของความเป็นเอกลักษณ์
+            return new ConflictException('ผู้ใช้นี้เป็นผู้ดูแลร้านอื่นอยู่แล้ว');
+          }
 
-          return new ConflictException(`Duplicate value for ${target}.`);
+          // ฟิลด์อื่น ๆ
+          const label = targets.length ? targets.join(', ') : 'unique field';
+          return new ConflictException(`ข้อมูลซ้ำในฟิลด์: ${label}`);
         }
-
         // record not found
         case 'P2025': {
           const cause = (error.meta?.cause as string | undefined) ?? 'Record not found';

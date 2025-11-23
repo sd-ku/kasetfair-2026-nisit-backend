@@ -161,7 +161,7 @@ model Nisit {
 
 model Store {
   id          Int        @id @default(autoincrement())
-  storeName   String
+  storeName   String     @unique
   boothNumber String?    @unique
   type        StoreType
   state       StoreState @default(CreateStore)

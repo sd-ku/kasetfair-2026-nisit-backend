@@ -90,13 +90,17 @@ export class StoreDraftService extends StoreService {
       }),
     };
 
-    const created = await this.draftRepo.createStoreWithMembersAndAttempts({
-      storeData,
-      memberNisitIds: found.map((x) => x.nisitId),
-      missingEmails,
-    });
-
-    return mapToCreateResponse(created, missingEmails);
+    try {
+      const created = await this.draftRepo.createStoreWithMembersAndAttempts({
+        storeData,
+        memberNisitIds: found.map((x) => x.nisitId),
+        missingEmails,
+      });
+      
+      return mapToCreateResponse(created, missingEmails);
+    } catch(err) {
+      throw this.transformPrismaError(err);
+    }
   }
 
   async updateMyDraftStore(nisitId: string, dto: UpdateDraftStoreRequestDto): Promise<UpdateDraftStoreResponseDto> {
