@@ -16,7 +16,7 @@ export class NisitService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly consentService: ConsentService,
-  ) {}
+  ) { }
 
   async register(createDto: CreateNisitRequestDto): Promise<NisitResponseDto> {
     if (!createDto.consentAccepted) {
@@ -28,7 +28,7 @@ export class NisitService {
     const data = this.buildCreateData(createDto);
 
     try {
-      const nisit = await this.prisma.nisit.upsert({ 
+      const nisit = await this.prisma.nisit.upsert({
         where: { nisitId: data.nisitId },
         update: {
           phone: data.phone,
@@ -36,7 +36,7 @@ export class NisitService {
           dormitoryTypeId: data.dormitoryTypeId,
           nisitCardMediaId: data.nisitCardMediaId
         },
-        create: { 
+        create: {
           nisitId: data.nisitId,
           firstName: data.firstName,
           lastName: data.lastName,
@@ -61,7 +61,7 @@ export class NisitService {
     } catch (error) {
       throw this.transformPrismaError(error);
     }
-  }  
+  }
 
   async getNisitInfoBySubId(providerSub: string): Promise<NisitResponseDto> {
     const nisitInfo = await this.prisma.userIdentity.findFirst({
@@ -111,8 +111,6 @@ export class NisitService {
       }
     }
 
-    console.log('Updating nisit:', nisitId, data);
-
     try {
       const nisit = await this.prisma.nisit.update({
         where: { nisitId },
@@ -142,7 +140,6 @@ export class NisitService {
   private buildCreateData(
     dto: CreateNisitRequestDto,
   ) {
-    // console.log(dto)
     try {
       return {
         nisitId: dto.nisitId.trim(),
@@ -195,7 +192,7 @@ export class NisitService {
   }
 
   private normalizeStringOrUndefined(value?: string) {
-    if (value === undefined ) return undefined;
+    if (value === undefined) return undefined;
     if (value === null) return null;
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : undefined;

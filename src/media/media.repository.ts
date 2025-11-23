@@ -10,7 +10,7 @@ import {
 export type MediaWithStoreAdmin = Prisma.MediaGetPayload<{
   include: {
     storeBooth: {
-      select: { 
+      select: {
         id: true;
         storeAdminNisitId: true
       };
@@ -23,7 +23,7 @@ export type MediaWithStoreAdmin = Prisma.MediaGetPayload<{
 
 @Injectable()
 export class MediaRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * สร้าง media ใหม่หลังอัปโหลดสำเร็จ
@@ -40,9 +40,9 @@ export class MediaRepository {
       where: { id },
       include: {
         storeBooth: {
-          select: { 
+          select: {
             id: true,
-            storeAdminNisitId: true 
+            storeAdminNisitId: true
           },
         },
         good: {
@@ -112,8 +112,6 @@ export class MediaRepository {
         },
       },
     });
-
-    console.log('storeId in repo', storeId);
 
     return storeId?.store?.id;
   }

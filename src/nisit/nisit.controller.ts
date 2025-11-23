@@ -39,7 +39,7 @@ export class NisitController {
   constructor(
     private readonly nisitService: NisitService,
     private readonly authService: AuthService,
-  ) {}
+  ) { }
 
   @UseGuards(JwtAuthGuard)
   @Post('register')
@@ -60,8 +60,6 @@ export class NisitController {
 
     const nisitRes = await this.nisitService.register({ ...payload, email });
 
-    // console.log('Nisit registered:', nisitRes);
-
     this.authService.issueAccessTokenForIdentity({
       providerSub: req.user.userId,
       nisitId: nisitRes.nisitId,
@@ -81,8 +79,6 @@ export class NisitController {
   @ApiOkResponse({ type: NisitResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   getInfo(@Req() req: AuthenticatedRequest) {
-    console.log(`req.user from get info: `)
-    console.log(req.user)
     const userId = req.user?.userId
     if (!userId) {
       throw new UnauthorizedException("Invalid providerSubId")

@@ -32,8 +32,8 @@ type AuthenticatedRequest = Request & { user };
 @UseGuards(JwtAuthGuard)
 @Controller('api/store')
 export class StoreController {
-  constructor(private readonly storeService: StoreService) {}
-  
+  constructor(private readonly storeService: StoreService) { }
+
   @Delete('mine/members/me')
   @ApiOperation({ summary: 'Leave the current store as the authenticated member.' })
   @ApiOkResponse({
@@ -63,7 +63,6 @@ export class StoreController {
     @Req() req: AuthenticatedRequest,
     @Body() dto: UpdateStoreRequestDto,
   ): Promise<StoreResponseDto> {
-    // console.log(dto)
     const nisitId = req.user?.nisitId;
     if (!nisitId) {
       throw new UnauthorizedException('Missing user context.');

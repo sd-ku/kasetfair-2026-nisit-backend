@@ -18,7 +18,7 @@ export class KuAuthController {
   constructor(
     private readonly kuAuthService: KuAuthService,
     private readonly authService: AuthService,
-  ) {}
+  ) { }
 
   // In-memory เก็บ state -> code_verifier (dev/demo)
   private stateStore = new Map<string, string>();
@@ -66,16 +66,14 @@ export class KuAuthController {
       throw new HttpException('No idCode from KU SSO', HttpStatus.FORBIDDEN);
     }
 
-    console.log('KU UserInfo:', userInfo);
-    
     const kuEmail =
-    userInfo['google-mail'] ??
-    userInfo['office365-mail'];
-    
+      userInfo['google-mail'] ??
+      userInfo['office365-mail'];
+
     const displayName = userInfo.thainame ?? userInfo.cn ?? kuEmail;
     const typePerson = userInfo['type-person'];
     const kuIdcode = userInfo['idcode']; // สมมติ field นี้มี และ unique ต่อ user
-    
+
     if (!kuEmail) {
       throw new HttpException('No email from KU SSO', HttpStatus.FORBIDDEN);
     }

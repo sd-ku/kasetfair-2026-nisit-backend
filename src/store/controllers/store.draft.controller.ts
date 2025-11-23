@@ -39,7 +39,7 @@ type AuthenticatedRequest = Request & { user };
 @UseGuards(JwtAuthGuard)
 @Controller('api/store')
 export class StoreDraftController {
-  constructor(private readonly storeDraftService: StoreDraftService) {}
+  constructor(private readonly storeDraftService: StoreDraftService) { }
 
   @Post('mine/draft')
   @ApiOperation({ summary: 'Create a new store for the authenticated user.' })
@@ -61,12 +61,10 @@ export class StoreDraftController {
     if (!myGmail) {
       throw new UnauthorizedException('Missing user gmail context.');
     }
-    // console.log(dto)
     const res = await this.storeDraftService.createForUser(nisitId, myGmail, dto);
-    // console.log(res)
     return res;
   }
-  
+
   @Patch('mine/draft')
   @ApiOperation({ summary: 'Update store details for the user.' })
   @ApiOkResponse({ type: StoreResponseDto })
@@ -100,7 +98,7 @@ export class StoreDraftController {
     }
 
     const store = await this.storeDraftService.getStoreStatus(nisitId);
-    
+
     const draftState = ['CreateStore', 'ClubInfo', 'StoreDetails', 'ProductDetails']
     if (draftState.includes(store.state)) {
       return this.storeDraftService.getStoreDraft(store, nisitId)

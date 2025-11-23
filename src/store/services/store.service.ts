@@ -22,6 +22,7 @@ import { StoreStatusResponseDto } from '../dto/store-state.dto'
 import { StoreMemberStatus } from '@prisma/client'
 import { NisitService } from 'src/nisit/nisit.service';
 import { StorePendingValidationResponseDto, StoreValidationChecklistItemDto, StoreValidationSectionDto } from '../dto/store-validation.dto';
+import { StoreQuestionService } from './store.question.service';
 
 // สมมติใช้ StoreState.Pending เป็นสถานะ "ส่งตรวจแล้ว"
 export const READY_FOR_PENDING_STATES: StoreState[] = [StoreState.ProductDetails];
@@ -43,7 +44,7 @@ export class StoreService {
   constructor(
     protected readonly repo: StoreRepository,
     protected readonly nisitService: NisitService
-  ) {}
+  ) { }
 
   async transferStoreAdmin(adminId: string, dto: { transferId?: string }) {
     // หา store ของ admin คนนี้ก่อน + เช็คสิทธิ์ขั้นต้น
@@ -212,13 +213,13 @@ export class StoreService {
     if (!nisitId) {
       throw new UnauthorizedException('Missing user context.');
     }
-    
+
     const storeId = await this.ensureStoreAndPermissionIdForNisit(nisitId);
     const store = await this.repo.findStoreById(storeId);
     if (!store) {
       throw new NotFoundException('Store not found.');
     }
-    
+
     if (store.storeAdminNisitId !== nisitId) {
       throw new ForbiddenException('เฉพาะผู้ดูแลร้านเท่านั้นที่สามารถแก้ไขร้านได้');
     }
@@ -335,7 +336,7 @@ export class StoreService {
     if (!store.storeAdminNisitId) {
       throw new NotFoundException("ไม่เจอผู้ดูแลร้าน กรุณาออกจากร้านเพื่อสร้างร้านใหม่")
     }
-    
+
     const storeStatus = {
       id: store.id,
       storeName: store.storeName,
@@ -472,6 +473,14 @@ export class StoreService {
         message: boothOk ? undefined : 'กรุณาอัปโหลดไฟล์แผนผังบูธ',
       });
 
+      const activeQuestions = await this.repo.listActiveQuestions();
+      const questionsOk = store.questionAnswers.length == activeQuestions.length;
+      detailItems.push({
+        key: 'questions',
+        label: 'คำถามการจัดการร้านค้า',
+        ok: questionsOk,
+      });
+
       const detailOk = detailItems.every((i) => i.ok);
 
       sections.push({
@@ -480,6 +489,7 @@ export class StoreService {
         ok: detailOk,
         items: detailItems,
       });
+
     }
 
     // ============= 4) Goods =============

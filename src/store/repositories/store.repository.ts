@@ -23,7 +23,7 @@ type ClubInfoPayload = {
 
 @Injectable()
 export class StoreRepository {
-  constructor(protected readonly prisma: PrismaService) {}
+  constructor(protected readonly prisma: PrismaService) { }
 
   get client() {
     return this.prisma;
@@ -149,6 +149,7 @@ export class StoreRepository {
         members: true,
         clubInfo: true,
         goods: true,
+        questionAnswers: true,
       },
     });
   }
@@ -241,24 +242,24 @@ export class StoreRepository {
       },
     });
 
-  const clubInfo = await tx.clubInfo.create({
-    data: {
-      clubName: payload.clubName ?? null,
-      leaderFirstName: payload.leaderFirstName ?? null,
-      leaderLastName: payload.leaderLastName ?? null,
-      leaderEmail: payload.leaderEmail ?? null,
-      leaderPhone: payload.leaderPhone ?? null,
-      leaderNisitId: payload.leaderNisitId ?? null,
-      store: {
-        connect: { id: store.id },
-      },
-      ...(payload.clubApplicationMediaId && {
-        clubApplicationMedia: {
-          connect: { id: payload.clubApplicationMediaId },
+    const clubInfo = await tx.clubInfo.create({
+      data: {
+        clubName: payload.clubName ?? null,
+        leaderFirstName: payload.leaderFirstName ?? null,
+        leaderLastName: payload.leaderLastName ?? null,
+        leaderEmail: payload.leaderEmail ?? null,
+        leaderPhone: payload.leaderPhone ?? null,
+        leaderNisitId: payload.leaderNisitId ?? null,
+        store: {
+          connect: { id: store.id },
         },
-      }),
-    },
-  });
+        ...(payload.clubApplicationMediaId && {
+          clubApplicationMedia: {
+            connect: { id: payload.clubApplicationMediaId },
+          },
+        }),
+      },
+    });
 
     return { store, clubInfo };
   }
@@ -322,6 +323,12 @@ export class StoreRepository {
       });
 
       return created;
+    });
+  }
+
+  async listActiveQuestions() {
+    return this.prisma.storeQuestionTemplate.findMany({
+      where: { isActive: true },
     });
   }
 }
