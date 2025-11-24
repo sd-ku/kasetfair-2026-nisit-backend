@@ -1,3 +1,5 @@
+// --------------------- DATASOURCE & GENERATOR ---------------------
+
 datasource db {
   provider   = "postgresql"
   extensions = [citext]
@@ -8,12 +10,7 @@ generator client {
   previewFeatures = ["postgresqlExtensions"]
 }
 
-// Secondary client output for Docker image to consume from /generated/prisma
-generator clientGenerated {
-  provider        = "prisma-client-js"
-  output          = "../generated/prisma"
-  previewFeatures = ["postgresqlExtensions"]
-}
+// --------------------- ENUMS ---------------------
 
 enum StoreType {
   Nisit
@@ -26,25 +23,20 @@ enum GoodsType {
 }
 
 enum StoreState {
-  // ขั้นตอนการสร้างร้าน
   CreateStore
   ClubInfo
   StoreDetails
   ProductDetails
   Submitted
 
-  // หลังจากส่งแล้ว เข้าสู่สถานะหลัก
-  Pending // รอตรวจสอบ
-  Validated // ได้รับการตรวจสอบแล้ว รอจับฉลาก
-  Success // ได้รับเลือก
-  Rejected // ไม่ได้รับเลือก (ถ้ามี)
+  Pending
+  Validated
+  Success
+  Rejected
 
   deleted
 }
 
-/**
- * (ถ้าต้องการ tag บทบาทในร้านแบบง่าย ๆ ให้ใช้ enum นี้; ถ้าไม่ใช้ก็ลบได้)
- */
 enum StoreRole {
   Leader
   Staff
@@ -78,15 +70,17 @@ enum StoreQuestionType {
   MULTI_SELECT
 }
 
+// --------------------- MODELS ---------------------
+
 model ConsentText {
-  id           String       @id @default(uuid())
-  version      Int
-  title        String
-  content      String
-  language     String      // เช่น th, en
-  active       Boolean     @default(false)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id        String     @id @default(uuid())
+  version   Int
+  title     String
+  content   String
+  language  String
+  active    Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   userConsents UserConsent[]
 
@@ -95,28 +89,27 @@ model ConsentText {
 }
 
 model DormitoryType {
-  id        Int      @id @default(autoincrement())
-  label     String   @unique      // เช่น "ภายใน มก.", "ซอยพหลโยธิน 45 มก."
-  isActive  Boolean  @default(true)
-  order     Int?                   // เผื่ออยากจัดลำดับการแสดงผลหน้า UI
-  
-  // ใครใช้อ้างอิงบ้าง
+  id        Int     @id @default(autoincrement())
+  label     String  @unique
+  isActive  Boolean @default(true)
+  order     Int?
+
   residents Nisit[]
-  
+
   @@map("dormitory_type")
 }
 
 model UserConsent {
-  id              String      @id @default(uuid())
-  nisitId         String
-  consentTextId   String
-  accepted        Boolean
-  acceptedAt      DateTime    @default(now())
-  ipAddress       String?
-  userAgent       String?
-  deviceInfo      String?
+  id            String     @id @default(uuid())
+  nisitId       String
+  consentTextId String
+  accepted      Boolean
+  acceptedAt    DateTime   @default(now())
+  ipAddress     String?
+  userAgent     String?
+  deviceInfo    String?
 
-  consentText     ConsentText @relation(fields: [consentTextId], references: [id])
+  consentText   ConsentText @relation(fields: [consentTextId], references: [id])
 
   @@index([nisitId])
   @@index([consentTextId])
@@ -126,12 +119,11 @@ model UserConsent {
 model UserIdentity {
   providerSub   String
   provider      String
-  providerEmail String  @db.Citext
+  providerEmail String @db.Citext
   emailVerified Boolean @default(false)
 
-  // ---- Relation to Nisit (many-to-one)
   nisitId String?
-  info    Nisit?  @relation("NisitUserIdentities", fields: [nisitId], references: [nisitId], onDelete: SetNull)
+  info    Nisit? @relation("NisitUserIdentities", fields: [nisitId], references: [nisitId], onDelete: SetNull)
 
   @@unique([provider, providerSub])
   @@index([providerEmail])
@@ -139,26 +131,25 @@ model UserIdentity {
 }
 
 model Nisit {
-  id                String  @default(uuid())
-  nisitId           String  @id
-  firstName         String
-  lastName          String
-  phone             String?  @unique
-  email             String  @unique @db.Citext
-  nisitCardMediaId  String? @unique
-  nisitCardMedia    Media?   @relation("NisitCardMedia", fields: [nisitCardMediaId], references: [id])
+  id               String @default(uuid())
+  nisitId          String @id
+  firstName        String
+  lastName         String
+  phone            String? @unique
+  email            String  @unique @db.Citext
 
-  dormitoryTypeId   Int?
-  dormitoryType     DormitoryType? @relation(fields: [dormitoryTypeId], references: [id], onDelete: SetNull)
+  nisitCardMediaId String?    @unique
+  nisitCardMedia   Media?     @relation("NisitCardMedia", fields: [nisitCardMediaId], references: [id])
 
-  // เป็น admin ของร้าน (หนึ่งคนต่อหนึ่งร้าน)
-  storeAdminOf      Store?  @relation("StoreAdmin")
+  dormitoryTypeId Int?
+  dormitoryType   DormitoryType? @relation(fields: [dormitoryTypeId], references: [id], onDelete: SetNull)
 
-  // เป็นสมาชิกในร้าน (One Nisit -> One Store)
+  storeAdminOf Store? @relation("StoreAdmin")
+
   storeId Int?
   store   Store? @relation("StoreMembers", fields: [storeId], references: [id], onDelete: SetNull)
 
-  userIdentities      UserIdentity[]            @relation("NisitUserIdentities")
+  userIdentities      UserIdentity[] @relation("NisitUserIdentities")
   storeMemberAttempts StoreMemberAttemptEmail[]
 
   @@index([storeId])
@@ -172,18 +163,18 @@ model Store {
   type        StoreType
   state       StoreState @default(CreateStore)
 
-  goodType    GoodsType?
+  goodType GoodsType?
 
   storeAdminNisitId String? @unique
   storeAdmin        Nisit?  @relation("StoreAdmin", fields: [storeAdminNisitId], references: [nisitId], onDelete: Cascade)
 
   clubInfo    ClubInfo?
 
-  boothMediaId  String?   @unique
-  boothMedia    Media?    @relation("BoothMedia", fields: [boothMediaId], references: [id])
+  boothMediaId String?   @unique
+  boothMedia   Media?    @relation("BoothMedia", fields: [boothMediaId], references: [id])
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   members Nisit[] @relation("StoreMembers")
   goods   Goods[]
@@ -197,23 +188,20 @@ model Store {
 }
 
 model ClubInfo {
-  id                  String     @id @default(uuid())
-  clubName            String?
-  clubApplicationMediaId  String?     @unique
-  clubApplicationMedia    Media?     @relation("ClubApplicationMedia", fields: [clubApplicationMediaId], references: [id], onDelete: SetNull)
+  id                    String @id @default(uuid())
+  clubName              String?
+  clubApplicationMediaId String? @unique
+  clubApplicationMedia   Media?  @relation("ClubApplicationMedia", fields: [clubApplicationMediaId], references: [id], onDelete: SetNull)
 
-  // หนึ่ง ClubInfo ผูกกับ Store เดียว บังคับต้องมี
-  storeId         Int        @unique
-  store           Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  storeId Int @unique
+  store   Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
-  // --- Leader contact เป็นข้อมูลหลัก (ไม่ต้องเป็น user ในระบบก็ได้)
   leaderFirstName String?
   leaderLastName  String?
   leaderEmail     String?
   leaderPhone     String?
-  
-  leaderNisitId   String?
-  // leader          Nisit?     @relation("club_leader", fields: [leaderNisitId], references: [nisitId], onDelete: SetNull)
+
+  leaderNisitId String?
 
   @@map("club_info")
 }
@@ -223,30 +211,27 @@ model StoreMemberAttemptEmail {
   storeId Int
   store   Store @relation("Store_AttemptEmails", fields: [storeId], references: [id], onDelete: Cascade)
 
-  email   String  @db.Citext
+  email   String @db.Citext
   nisitId String?
-  nisit   Nisit?  @relation(fields: [nisitId], references: [nisitId], onDelete: SetNull)
+  nisit   Nisit? @relation(fields: [nisitId], references: [nisitId], onDelete: SetNull)
 
-  status StoreMemberStatus @default(Invited) // Invited, Joined, Declined ฯลฯ
+  status     StoreMemberStatus @default(Invited)
+  invitedAt  DateTime @default(now())
+  joinedAt   DateTime?
 
-  invitedAt DateTime  @default(now())
-  joinedAt  DateTime?
-
-  @@unique([storeId, email]) // กันซ้ำภายในร้านเดียวกัน
-  @@index([email]) // ใช้ค้นหาเวลาคนสมัครเข้ามา
-  // @@index([storeId])
-  // @@index([nisitId])
+  @@unique([storeId, email])
+  @@index([email])
   @@map("store_member_attempt_email")
 }
 
 model Goods {
-  id        String       @id @default(uuid())
+  id        String   @id @default(uuid())
   name      String
   type      GoodsType
-  price     Decimal   @db.Decimal(10, 2)
+  price     Decimal  @db.Decimal(10, 2)
   storeId   Int
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
@@ -258,58 +243,59 @@ model Goods {
 }
 
 model Media {
-  id            String   @id @default(uuid()) // ใช้ id นี้เป็น mediaId ส่งให้ frontend
-  provider      String
-  bucket        String?
-  key           String?  // {bucket}/{key} คือ path เต็มใน S3
-  externalId    String?
-  
-  originalName  String?
-  mimeType      String
-  size          Int?
-  purpose       MediaPurpose  @default(OTHER)
-  
-  link          String?
-  status        MediaStatus   @default(UPLOADING)
-  
-  createdBy     String?
-  createdAt     DateTime @default(now())
+  id           String @id @default(uuid())
+  provider     String
+  bucket       String?
+  key          String?
+  externalId   String?
+
+  originalName String?
+  mimeType     String
+  size         Int?
+  purpose      MediaPurpose @default(OTHER)
+
+  link     String?
+  status   MediaStatus @default(UPLOADING)
+  createdBy String?
+  createdAt DateTime @default(now())
 
   nisitCardOwner  Nisit?   @relation("NisitCardMedia")
   clubApplication ClubInfo? @relation("ClubApplicationMedia")
-  storeBooth      Store?   @relation("BoothMedia")
-  good            Goods?   @relation("GoodMedia")
+  storeBooth      Store?    @relation("BoothMedia")
+  good            Goods?    @relation("GoodMedia")
+
   @@map("medias")
 }
 
 model StoreQuestionTemplate {
-  id          Int                 @id @default(autoincrement())
-  key         String              @unique
+  id          Int    @id @default(autoincrement())
+  key         String @unique
   label       String
   description String?
   type        StoreQuestionType
   options     Json?
-  isActive    Boolean             @default(true)
+  isActive    Boolean @default(true)
   order       Int?
 
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  answers     StoreQuestionAnswer[]
+  answers StoreQuestionAnswer[]
+
   @@map("store_question_template")
 }
 
 model StoreQuestionAnswer {
-  id          Int                   @id @default(autoincrement())
-  storeId     Int
-  questionId  Int
-  value       Json
+  id         Int                   @id @default(autoincrement())
+  storeId    Int
+  questionId Int
+  value      Json
 
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  store       Store                 @relation(fields: [storeId], references: [id])
-  question    StoreQuestionTemplate @relation(fields: [questionId], references: [id])
+  store    Store                 @relation(fields: [storeId], references: [id])
+  question StoreQuestionTemplate @relation(fields: [questionId], references: [id])
 
   @@unique([storeId, questionId])
   @@map("store_question_answer")

@@ -27,9 +27,12 @@ FROM node:20-alpine AS prod
 WORKDIR /app
 ENV NODE_ENV=production
 
-# ใช้ node_modules จาก deps (ถ้าอยากผอมกว่านี้ค่อยปรับเป็น prod-only ทีหลัง)
+# Copy node_modules (includes generated Prisma Client)
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/generated ./generated
+
+# Copy prisma folder (required by migrations & some runtime tools)
+COPY --from=deps /app/prisma ./prisma
+COPY --from=deps /app/prisma.config.ts ./prisma.config.ts
 
 COPY --from=build /app/dist ./dist
 COPY package*.json ./
