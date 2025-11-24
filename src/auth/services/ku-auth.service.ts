@@ -13,8 +13,8 @@ import * as crypto from 'crypto';
 export class KuAuthService {
   constructor(
     private readonly prisma: PrismaService,
-  ) {}
-  
+  ) { }
+
   private readonly clientId = process.env.KU_CLIENT_ID!;
   private readonly clientSecret = process.env.KU_CLIENT_SECRET!;
   private readonly redirectUri = process.env.KU_REDIRECT_URI!;
@@ -121,5 +121,15 @@ export class KuAuthService {
     });
 
     return nisit;
+  }
+
+  async checkNisitPrivilege(nisitInfo) {
+    // if (nisitInfo['campus'] !== 'B') {
+    //   throw new UnauthorizedException('นิสิตวิทยาเขตบางเขนเท่านั้นที่สามารถเข้าถึงระบบนี้ได้');
+    // }
+
+    if (nisitInfo['type-person'] !== '3' && nisitInfo['degree'] !== '0') {
+      throw new UnauthorizedException('นิสิตปริญญาตรีเท่านั้นที่สามารถเข้าถึงระบบนี้ได้');
+    }
   }
 }

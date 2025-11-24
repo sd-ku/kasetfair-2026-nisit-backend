@@ -61,17 +61,17 @@ export class KuAuthController {
 
     // 2) ดึง userinfo จาก KU
     let userInfo = await this.kuAuthService.getUserInfo(token.access_token);
+    console.log(userInfo);
     const idCode = userInfo['idcode'];
     if (!idCode) {
       throw new HttpException('No idCode from KU SSO', HttpStatus.FORBIDDEN);
     }
+    await this.kuAuthService.checkNisitPrivilege(userInfo);
 
     const kuEmail =
       userInfo['google-mail'] ??
       userInfo['office365-mail'];
 
-    const displayName = userInfo.thainame ?? userInfo.cn ?? kuEmail;
-    const typePerson = userInfo['type-person'];
     const kuIdcode = userInfo['idcode']; // สมมติ field นี้มี และ unique ต่อ user
 
     if (!kuEmail) {
