@@ -9,7 +9,7 @@ export class AuthService {
   constructor(
     readonly prisma: PrismaService,
     readonly jwt: JwtService,
-  ) {}
+  ) { }
 
   public async findIdentity(provider: string, providerSub: string) {
     if (!provider || !providerSub) throw new UnauthorizedException('Missing provider/providerSub');
@@ -56,16 +56,16 @@ export class AuthService {
     const normalizedEmail = providerEmail.toLowerCase();
     return this.prisma.userIdentity.upsert({
       where: { provider_providerSub: { provider, providerSub } },
-      update: { 
-        providerEmail: normalizedEmail, 
+      update: {
+        providerEmail: normalizedEmail,
         emailVerified: true,
-        nisitId: nisitId 
+        nisitId: nisitId
       },
-      create: { 
+      create: {
         provider,
-        providerSub, 
-        providerEmail: normalizedEmail, 
-        emailVerified: true, 
+        providerSub,
+        providerEmail: normalizedEmail,
+        emailVerified: true,
         nisitId
       },
     });
@@ -73,6 +73,26 @@ export class AuthService {
 
   private shouldUseAuthCookie() {
     return process.env.USE_AUTH_COOKIE === 'true';
+  }
+
+  /**
+   * Get cookie options for access_token cookie
+   * Ensures HTTPS compatibility and cross-origin support
+   */
+  private getCookieOptions() {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    return {
+      httpOnly: true,
+      // sameSite 'none' requires secure=true (HTTPS only)
+      // Use 'none' for cross-origin requests in production
+      sameSite: isProduction ? ('none' as const) : ('lax' as const),
+      // MUST be true in production for sameSite='none' to work
+      // Also ensures cookie is only sent over HTTPS
+      secure: isProduction,
+      path: '/',
+      maxAge: 60 * 60 * 1000 * 12, // 12 hours
+    };
   }
 
   public setAuthCookie(res: Response | undefined, accessToken: string) {
@@ -86,18 +106,13 @@ export class AuthService {
   }
 
   public clearAuthCookie(res?: Response) {
-    if (!res) return {success: false};
-    res.clearCookie('access_token', {
-      httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-    });
-    return {success: true}
+    if (!res) return { success: false };
+    res.clearCookie('access_token', this.getCookieOptions());
+    return { success: true };
   }
 
   public mintServerToken(
-    user: { 
+    user: {
       sub: string;
       nisitId?: string | null;
       firstName?: string | null;
@@ -147,14 +162,8 @@ export class AuthService {
       profileComplete: Boolean(identity.nisitId),
     });
 
-    this.setAuthCookie(res, accessToken);
-    res?.cookie('access_token', accessToken, {
-      httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 1000 * 12,
-    });
+    // Set cookie with proper cross-origin settings for production
+    res?.cookie('access_token', accessToken, this.getCookieOptions());
 
     return accessToken;
   }
