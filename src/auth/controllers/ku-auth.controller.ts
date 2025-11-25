@@ -61,7 +61,7 @@ export class KuAuthController {
 
     // 2) ดึง userinfo จาก KU
     let userInfo = await this.kuAuthService.getUserInfo(token.access_token);
-    console.log(userInfo);
+
     const idCode = userInfo['idcode'];
     if (!idCode) {
       throw new HttpException('No idCode from KU SSO', HttpStatus.FORBIDDEN);

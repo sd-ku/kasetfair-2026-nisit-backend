@@ -32,18 +32,24 @@ async function bootstrap() {
     // exceptionFactory: (errors) => new BadRequestException(errors), // ถ้าอยากคุม shape เอง
   }));
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('KasetFair Backend')
-    .setDescription('API documentation for the KasetFair backend services.')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-  });
+  // Swagger - เปิดเฉพาะ development และ staging
+  if (process.env.NODE_ENV !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('KasetFair Backend')
+      .setDescription('API documentation for the KasetFair backend services.')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
+    });
+    console.log('📚 Swagger documentation available at /api/docs');
+  } else {
+    console.log('🔒 Swagger disabled in production');
+  }
 
   await app.listen(process.env.PORT ?? 4000);
 }

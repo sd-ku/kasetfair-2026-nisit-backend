@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MediaService } from './media.service';
 import { MediaController } from './media.controller';
-import { GoogleDriveProvider } from './provider/google-drive.provider';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MediaRepository } from './media.repository';
 
@@ -10,9 +9,8 @@ import { MediaRepository } from './media.repository';
   providers: [
     MediaService,       // ธุรกิจหลัก: validate, save, return result
     MediaRepository,    // ดึง/บันทึกข้อมูล Media จาก DB
-    GoogleDriveProvider,// ผู้ให้บริการอัปโหลด Google Drive
     PrismaService,      // ใช้ใน Repository
   ],
   exports: [MediaService, MediaRepository],
 })
-export class MediaModule {}
+export class MediaModule { }

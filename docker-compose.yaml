@@ -29,7 +29,7 @@ services:
       - .env
     environment:
       # Use the service hostname inside the Docker network, not localhost
-      DATABASE_URL: "${DATABASE_URL:-postgresql://appuser:apppass@db:5432/appdb?schema=public}"
+      DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${PORT:-8000}
     ports:
