@@ -106,12 +106,7 @@ export class AuthService {
 
   public setAuthCookie(res: Response | undefined, accessToken: string) {
     if (!res || !this.shouldUseAuthCookie()) return;
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 15 * 60 * 1000,
-    });
+    res.cookie('access_token', accessToken, this.getCookieOptions());
   }
 
   public clearAuthCookie(res?: Response) {

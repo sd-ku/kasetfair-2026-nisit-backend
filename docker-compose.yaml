@@ -4,13 +4,9 @@ services:
     container_name: pg
     restart: unless-stopped
     env_file:
-      - .env.production
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-appdb}
-      POSTGRES_USER: ${POSTGRES_USER:-appuser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apppass}
+      - .env
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,13 +22,13 @@ services:
     container_name: nest
     restart: unless-stopped
     env_file:
-      - .env.production
+      - .env
     environment:
       # Use the service hostname inside the Docker network, not localhost
       NODE_ENV: ${NODE_ENV:-production}
-      PORT: ${PORT:-8000}
+      PORT: ${PORT}
     ports:
-      - "${PORT:-8000}:8000"
+      - "47992:8000"
     depends_on:
       db:
         condition: service_healthy

@@ -13,10 +13,17 @@ async function bootstrap() {
   });
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cookieParser());
+
+  // Parse FRONTEND_URL - supports comma-separated URLs
+  const frontendUrls = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+    : ['http://localhost:3000'];
+
   app.enableCors({
-    origin: [process.env.FRONTEND_URL],
+    origin: frontendUrls,
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+    exposedHeaders: ['Set-Cookie'],
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
   app.use(
@@ -51,6 +58,8 @@ async function bootstrap() {
     console.log('🔒 Swagger disabled in production');
   }
 
-  await app.listen(process.env.PORT ?? 4000);
+  const port = process.env.PORT ?? 47992
+  await app.listen(port);
+  console.log(`Backend run at: ${port}`)
 }
 bootstrap();
