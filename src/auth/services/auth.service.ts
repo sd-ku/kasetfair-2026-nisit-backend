@@ -43,6 +43,15 @@ export class AuthService {
     return identity?.info;
   }
 
+  public async findSystemAdminByEmail(email: string) {
+    if (!email) {
+      throw new UnauthorizedException('Missing email');
+    }
+
+    return this.prisma.systemAdmin.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+  }
 
   public async upsertIdentity(
     provider: string,

@@ -71,6 +71,25 @@ const dormitoryTypes: Prisma.DormitoryTypeCreateManyInput[] = [
 ] as const;
 
 // ===============================
+// System Admins
+// ===============================
+
+const systemAdmins: Prisma.SystemAdminCreateManyInput[] = [
+  {
+    email: "sasd.psd@ku.th",
+    name: "Admin SASD",
+    role: "SUPER_ADMIN",
+    isActive: true,
+  },
+  {
+    email: "phongsathon.r@ku.th",
+    name: "Oat",
+    role: "SUPER_ADMIN",
+    isActive: true,
+  },
+] as const;
+
+// ===============================
 // Consent Text
 // ===============================
 
@@ -154,6 +173,14 @@ async function main() {
     });
   }
   console.log("✅ Seeded consent text successfully\n");
+
+  // Seed System Admins
+  console.log("👤 Seeding system admins...");
+  await prisma.systemAdmin.createMany({
+    data: systemAdmins,
+    skipDuplicates: true,
+  });
+  console.log("✅ Seeded system admins successfully\n");
 
   console.log("🎉 Database seeding completed!");
 }

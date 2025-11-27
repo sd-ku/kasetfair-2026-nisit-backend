@@ -17,7 +17,7 @@ export type ExchangeParams = {
 export class GoogleAuthService {
   private readonly googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly auth: AuthService) { }
 
   private resolveAppToken(authHeader?: string, body?: ExchangeDto): string {
     const headerToken = authHeader?.startsWith('Bearer') ? authHeader.slice(7) : undefined;
@@ -48,12 +48,17 @@ export class GoogleAuthService {
     const providerSub = payload.sub;
     const providerEmail = payload.email?.toLowerCase();
     if (!providerSub || !providerEmail) {
-      throw new UnauthorizedException('Missing providerSub/email');
+      throw new UnauthorizedException('ไม่พบข้อมูลผู้ใช้');
+    }
+
+    const admin = await this.auth.findSystemAdminByEmail(providerEmail);
+    if (!admin) {
+      throw new UnauthorizedException('เฉพาะผู้ดูแลระบบเท่านั้นที่ได้รับอนุญาตให้เข้าสู่ระบบด้วย Google');
     }
 
     const gmailIdentity = await this.auth.upsertIdentity('google', providerSub, providerEmail);
     if (!gmailIdentity.providerSub || !gmailIdentity.providerEmail) {
-      throw new InternalServerErrorException('User identity incomplete after upsert');
+      throw new InternalServerErrorException('ข้อมูลระบุตัวตนของผู้ใช้ไม่สมบูรณ์หลังจาก upsert');
     }
 
     const nisitInfo = await this.auth.findNisitInfoByProviderSub('google', providerSub);

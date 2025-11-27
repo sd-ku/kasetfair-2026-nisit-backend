@@ -181,6 +181,7 @@ model Store {
 
   memberAttemptEmails StoreMemberAttemptEmail[] @relation("Store_AttemptEmails")
   questionAnswers     StoreQuestionAnswer[]
+  reviewDrafts        StoreReviewDraft[]
 
   @@index([type])
   @@index([state])
@@ -299,4 +300,49 @@ model StoreQuestionAnswer {
 
   @@unique([storeId, questionId])
   @@map("store_question_answer")
+}
+
+// --------------------- ADMIN ---------------------
+
+enum ReviewStatus {
+  NeedFix   // อะไรต้องแก้
+  Pending // รอจับฉลาก
+  Rejected
+  deleted
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
+model StoreReviewDraft {
+  id          String      @id @default(uuid())
+
+  storeId     Int
+  store       Store       @relation(fields: [storeId], references: [id])
+
+  adminId     String
+  admin       SystemAdmin @relation(fields: [adminId], references: [id])
+
+  status      ReviewStatus
+  comment     String?     // ข้อความของ admin
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("store_review_draft")
+}
+
+model SystemAdmin {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String
+  role      AdminRole
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  reviewDrafts StoreReviewDraft[]
+
+  @@map("system_admin")
 }
