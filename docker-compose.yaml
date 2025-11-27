@@ -26,11 +26,10 @@ services:
     container_name: nest
     restart: unless-stopped
     env_file:
-      - .env
+      - .env.production
     environment:
       # Use the service hostname inside the Docker network, not localhost
-      DATABASE_URL: ${DATABASE_URL}
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-8000}
     ports:
       - "${PORT:-8000}:8000"

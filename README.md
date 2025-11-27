@@ -74,6 +74,9 @@ docker compose exec backend npx prisma db seed
 📄 Seeding consent text...
 ✅ Seeded consent text successfully
 
+👤 Seeding system admins...
+✅ Seeded system admins successfully
+
 🎉 Database seeding completed!
 ```
 
@@ -115,7 +118,7 @@ pnpm install
 
 ### 2. Setup Environment Variables
 
-Create a `.env` file:
+Create a `.env.production` file:
 
 ```env
 # Database - use 'localhost' for local development
