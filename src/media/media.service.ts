@@ -99,7 +99,7 @@ export class MediaService {
     const needsStore =
       purpose === MediaPurpose.STORE_LAYOUT ||
       purpose === MediaPurpose.STORE_GOODS
-      // purpose === MediaPurpose.CLUB_APPLICATION
+    // purpose === MediaPurpose.CLUB_APPLICATION
 
     if (needsStore) {
       if (!uploaderId) {
@@ -290,8 +290,14 @@ export class MediaService {
         break;
       }
       case MediaPurpose.CLUB_APPLICATION: {
-        const storeId = media.storeBooth?.id;
+        const storeId = media?.clubApplication?.storeId;
+        if (!storeId) {
+          throw new BadRequestException('Store not found');
+        }
         const actorStoreId = await this.mediaRepository.findStoreIdByNisitId(actorId);
+        if (!actorStoreId) {
+          throw new BadRequestException('Actor id not found');
+        }
         const isMember = !!actorStoreId && actorStoreId === storeId;
         if (!isMember) {
           throw new ForbiddenException('You do not have permission to access this media');
@@ -370,7 +376,7 @@ export class MediaService {
     params: {
       uploaderId?: string;
       storeId?: number;
-  } = {},
+    } = {},
   ): string {
     const { uploaderId, storeId } = params
 

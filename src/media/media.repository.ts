@@ -18,6 +18,12 @@ export type MediaWithStoreAdmin = Prisma.MediaGetPayload<{
     good: {
       select: { storeId: true };
     };
+    clubApplication: {
+      select: {
+        id: true,
+        storeId: true
+      };
+    };
   };
 }>;
 
@@ -48,6 +54,12 @@ export class MediaRepository {
         good: {
           select: { storeId: true },
         },
+        clubApplication: {
+          select: {
+            id: true,
+            storeId: true,
+          },
+        }
       },
     });
   }
