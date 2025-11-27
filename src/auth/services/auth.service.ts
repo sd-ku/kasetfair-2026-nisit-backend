@@ -101,6 +101,9 @@ export class AuthService {
       secure: isProduction,
       path: '/',
       maxAge: 60 * 60 * 1000 * 12, // 12 hours
+      // Set domain to allow cookie sharing across subdomains
+      // e.g., both api-ksf.sa.ku.ac.th and ksf.sa.ku.ac.th can access the cookie
+      domain: isProduction ? '.sa.ku.ac.th' : undefined,
     };
   }
 
