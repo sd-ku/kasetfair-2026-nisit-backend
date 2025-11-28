@@ -6,6 +6,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthService } from './services/auth.service';
 import { AuthController } from './controllers/auth.controller';
 import { KuAuthController } from './controllers/ku-auth.controller';
+import { KuOAuthController } from './controllers/ku-oauth.controller';
 import { KuAuthService } from './services/ku-auth.service';
 import { GoogleAuthService } from './services/google-auth.service';
 
@@ -29,8 +30,8 @@ import { GoogleAuthService } from './services/google-auth.service';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController, KuAuthController],
+  controllers: [AuthController, KuAuthController, KuOAuthController],
   providers: [JwtStrategy, AuthService, KuAuthService, GoogleAuthService],
   exports: [AuthService, GoogleAuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

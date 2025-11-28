@@ -22,6 +22,21 @@ export class KuAuthService {
   private readonly tokenEndpoint = process.env.KU_TOKEN_ENDPOINT!;
   private readonly userinfoEndpoint = process.env.KU_USERINFO_ENDPOINT!;
 
+  // In-memory state store shared across controllers
+  private stateStore = new Map<string, string>();
+
+  storeState(state: string, verifier: string) {
+    this.stateStore.set(state, verifier);
+  }
+
+  retrieveVerifier(state: string): string | undefined {
+    const verifier = this.stateStore.get(state);
+    if (verifier) {
+      this.stateStore.delete(state);
+    }
+    return verifier;
+  }
+
   generateCodeVerifier(): string {
     return crypto.randomBytes(32).toString('base64url');
   }

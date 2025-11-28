@@ -20,8 +20,7 @@ export class KuAuthController {
     private readonly authService: AuthService,
   ) { }
 
-  // In-memory เก็บ state -> code_verifier (dev/demo)
-  private stateStore = new Map<string, string>();
+
 
   @Get('login')
   async redirectToKu(@Res() res: Response) {
@@ -30,7 +29,7 @@ export class KuAuthController {
     const codeChallenge = this.kuAuthService.generateCodeChallenge(codeVerifier);
 
     // เก็บ verifier ผูกกับ state
-    this.stateStore.set(state, codeVerifier);
+    this.kuAuthService.storeState(state, codeVerifier);
 
     const url = this.kuAuthService.buildAuthUrl(state, codeChallenge);
     return res.redirect(url);
@@ -47,11 +46,10 @@ export class KuAuthController {
       throw new HttpException('Missing code or state', HttpStatus.BAD_REQUEST);
     }
 
-    const codeVerifier = this.stateStore.get(state);
+    const codeVerifier = this.kuAuthService.retrieveVerifier(state);
     if (!codeVerifier) {
       throw new HttpException('Invalid state', HttpStatus.BAD_REQUEST);
     }
-    this.stateStore.delete(state);
 
     // 1) แลก code เป็น token ของ KU
     const token = await this.kuAuthService.exchangeCodeForToken(
