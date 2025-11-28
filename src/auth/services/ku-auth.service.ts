@@ -21,6 +21,8 @@ export class KuAuthService {
   private readonly authEndpoint = process.env.KU_AUTH_ENDPOINT!;
   private readonly tokenEndpoint = process.env.KU_TOKEN_ENDPOINT!;
   private readonly userinfoEndpoint = process.env.KU_USERINFO_ENDPOINT!;
+  private readonly logoutEndpoint = process.env.KU_LOGOUT_ENDPOINT!;
+  private readonly userscope = process.env.KU_USER_SCOPE!;
 
   // In-memory state store shared across controllers
   private stateStore = new Map<string, string>();
@@ -51,7 +53,7 @@ export class KuAuthService {
       client_id: this.clientId,
       response_type: 'code',
       redirect_uri: this.redirectUri,
-      scope: 'openid profile email',
+      scope: this.userscope,
       state,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
