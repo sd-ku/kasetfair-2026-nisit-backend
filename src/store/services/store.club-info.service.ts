@@ -28,7 +28,7 @@ export class StoreClubInfoService extends StoreService {
     const temp = await this.repo.findStoreByNisitId(actorNisitId)
     if (!temp) throw new NotFoundException('Store not found.');
     const storeId = temp?.id
-    
+
     // 1) เอา store + members + clubInfo จาก repo
     const store = await this.repo.findStoreWithMembersAndClub(storeId);
 
@@ -92,7 +92,7 @@ export class StoreClubInfoService extends StoreService {
       }
 
       return {
-        storeId:  updated.id,
+        storeId: updated.id,
         storeName: updated.storeName,
         type: updated.type,
         state: updated.state,
@@ -143,7 +143,7 @@ export class StoreClubInfoService extends StoreService {
         'leaderNisitId',
         // 'clubApplicationMediaId',
       ] as (keyof typeof clubInfo)[]);
-      
+
       let finalStore = store
       if (store.state === StoreState.ClubInfo && complete) {
         finalStore = await tx.store.update({
@@ -162,7 +162,7 @@ export class StoreClubInfoService extends StoreService {
   ) {
     const store = await this.repo.findStoreByNisitId(nisitId);
     if (!store) {
-      throw new BadRequestException('Store Not Found.');
+      throw new NotFoundException('ไม่พบร้านค้าของคุณ');
     }
 
     const allInfo = await this.repo.findStoreWithMembersAndClub(store.id)
