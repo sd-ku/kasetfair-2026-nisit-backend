@@ -45,7 +45,7 @@ export class MediaService {
     }
 
     this.s3 = new S3Client({
-      region: process.env.S3_REGION ?? 'ap-southeast-1',
+      region: 'sa',
       endpoint: process.env.S3_ENDPOINT ?? 'https://s3.sa.ku.ac.th',
       forcePathStyle: true,
       credentials: {
@@ -56,35 +56,33 @@ export class MediaService {
   }
 
   public async listMediaFromS3(params?: {
-    prefix?: string;   // เช่น "upload/store/goods/"
+    prefix?: string;   
     maxKeys?: number;
-  }): Promise<
-    Array<{
-      key: string;
-      size?: number;
-      lastModified?: Date;
-    }>
-  > {
-    const command = new ListObjectsV2Command({
-      Bucket: this.bucket,
-      Prefix: params?.prefix,
-      MaxKeys: params?.maxKeys ?? 1000,
-    });
+  }) {
+    try {
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        Prefix: params?.prefix,
+        MaxKeys: params?.maxKeys ?? 1000,
+      });
 
-    const res = await this.s3.send(command);
+      const res = await this.s3.send(command);
 
-    const objects: S3Object[] = res.Contents ?? [];
+      const objects: S3Object[] = res.Contents ?? [];
 
-    // filter ให้เอาเฉพาะไฟล์รูป (ตามนามสกุล)
-    const imageObjects = objects.filter((obj) =>
-      obj.Key?.match(/\.(png|jpe?g|gif|webp|bmp)$/i),
-    );
+      const imageObjects = objects.filter((obj) =>
+        obj.Key?.match(/\.(png|jpe?g|gif|webp|bmp)$/i),
+      );
 
-    return imageObjects.map((obj) => ({
-      key: obj.Key!,
-      size: obj.Size,
-      lastModified: obj.LastModified,
-    }));
+      return imageObjects.map((obj) => ({
+        key: obj.Key!,
+        size: obj.Size,
+        lastModified: obj.LastModified,
+      }));
+    } catch (err) {
+      console.error('S3 list error >>>', err);
+      throw err; // หรือโยน BadRequestException ใหม่ก็ได้
+    }
   }
 
   public async generatePresignedUrl(

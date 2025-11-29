@@ -90,6 +90,34 @@ const systemAdmins: Prisma.SystemAdminCreateManyInput[] = [
 ] as const;
 
 // ===============================
+// Test Nisit Users
+// ===============================
+
+const testNisitUsers: Prisma.NisitCreateManyInput[] = [
+  {
+    nisitId: "6512345789",
+    firstName: "สมชาย",
+    lastName: "ใจดี",
+    email: "somchai.j@ku.th",
+    phone: "0812345678",
+  },
+  {
+    nisitId: "6523456789",
+    firstName: "สมหญิง",
+    lastName: "รักเรียน",
+    email: "somying.r@ku.th",
+    phone: "0823456789",
+  },
+  {
+    nisitId: "6534567890",
+    firstName: "ประยุทธ",
+    lastName: "มานะดี",
+    email: "prayut.m@ku.th",
+    phone: "0834567890",
+  },
+] as const;
+
+// ===============================
 // Consent Text
 // ===============================
 
@@ -181,6 +209,14 @@ async function main() {
     skipDuplicates: true,
   });
   console.log("✅ Seeded system admins successfully\n");
+
+  // Seed Test Nisit Users
+  console.log("👨‍🎓 Seeding test nisit users...");
+  await prisma.nisit.createMany({
+    data: testNisitUsers,
+    skipDuplicates: true,
+  });
+  console.log("✅ Seeded test nisit users successfully\n");
 
   console.log("🎉 Database seeding completed!");
 }

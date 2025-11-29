@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,13 +9,16 @@ import { ConsentService } from 'src/consent/consent.service';
 import { CreateNisitRequestDto } from './dto/create-nisit.dto';
 import { UpdateNisitDto } from './dto/update-nisit.dto';
 import { NisitResponseDto } from './dto/nisit-response.dto';
+import { NisitPrismaErrorHandler } from './utils/prismaError';
 
 @Injectable()
-export class NisitService {
+export class NisitService extends NisitPrismaErrorHandler {
   constructor(
     private readonly prisma: PrismaService,
     private readonly consentService: ConsentService,
-  ) { }
+  ) {
+    super();
+  }
 
   async register(createDto: CreateNisitRequestDto): Promise<NisitResponseDto> {
     if (!createDto.consentAccepted) {
@@ -209,55 +211,5 @@ export class NisitService {
     });
   }
 
-  private transformPrismaError(error: unknown): Error {
-    if (this.isPrismaKnownRequestError(error)) {
-      if (error.code === 'P2002') {
-        const fields = this.extractConflictFields(error);
-        const conflictField = fields || 'specified field';
-        return new ConflictException(`Duplicate value for ${conflictField}`);
-      }
-      if (error.code === 'P2025') {
-        return new NotFoundException('Nisit not found');
-      }
-    }
 
-    return this.isStandardError(error) ? error : new Error('Unknown error');
-  }
-
-  private extractConflictFields(error: Prisma.PrismaClientKnownRequestError) {
-    const target = error.meta?.target;
-    const fields = Array.isArray(target)
-      ? target
-      : typeof target === 'string'
-        ? [target]
-        : [];
-
-    const fieldMap: Record<string, string> = {
-      nisitId: 'nisitId',
-      email: 'email',
-      phone: 'phone',
-    };
-
-    const mapped = fields.map((field) => fieldMap[field] ?? field);
-    return mapped.join(', ');
-  }
-
-  private isPrismaKnownRequestError(
-    error: unknown,
-  ): error is Prisma.PrismaClientKnownRequestError {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      typeof (error as { code: unknown }).code === 'string'
-    );
-  }
-
-  private isStandardError(error: unknown): error is Error {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'message' in error
-    );
-  }
 }
