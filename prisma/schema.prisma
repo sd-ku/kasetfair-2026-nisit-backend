@@ -74,6 +74,14 @@ enum StoreQuestionType {
 
 // --------------------- MODELS ---------------------
 
+model NisitTrainingParticipant {
+  id        String     @id @default(uuid())
+  nisitId   String     @unique
+
+  @@index([nisitId])
+  @@map("nisit_training_participant")
+}
+
 model ConsentText {
   id        String     @id @default(uuid())
   version   Int

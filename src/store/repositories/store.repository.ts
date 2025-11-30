@@ -33,6 +33,12 @@ export class StoreRepository {
   // Nisit / Identity
   // ==============================
 
+  async findNisitIdsInTraining(nisitIds: string[]) {
+    return this.prisma.nisitTrainingParticipant.findMany({
+      where: { nisitId: { in: nisitIds } },
+    });
+  }
+
   async findNisitByNisitId(nisitId: string) {
     return this.prisma.nisit.findUnique({ where: { nisitId } });
   }

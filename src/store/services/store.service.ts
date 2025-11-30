@@ -191,6 +191,12 @@ export class StoreService {
       );
     }
 
+    const mergeStoreMembers = this.mergeStoreMembers(
+      store.members ?? [],
+      store.memberAttemptEmails ?? [],
+    );
+    const memberStatus = await this.checkNisitEligibility(store.members.map(m => m.email), store.id)
+
     return {
       id: store.id,
       storeName: store.storeName,
@@ -199,10 +205,7 @@ export class StoreService {
       type: store.type,
       state: store.state,
       storeAdminNisitId: store.storeAdminNisitId,
-      members: this.mergeStoreMembers(
-        store.members ?? [],
-        store.memberAttemptEmails ?? [],
-      ),
+      members: memberStatus,
       boothLayoutMediaId: store.boothMediaId ?? null,
       createdAt: store.createdAt,
       updatedAt: store.updatedAt,
@@ -226,9 +229,9 @@ export class StoreService {
 
     const updateData = this.buildUpdateData(dto);
     const shouldUpdateMembers = Array.isArray(dto.memberEmails);
-    let normalizedMemberEmails: string[] = [];
-    let missingEmails: string[] = [];
     let foundMembers: Awaited<ReturnType<typeof this.repo.findNisitsByGmails>> = [];
+    let missingEmails: string[] = [];
+    let emailStatus: Array<{ email: string; status: StoreMemberStatus }> = [];
 
     if (shouldUpdateMembers) {
       const actor = await this.repo.findNisitByNisitId(nisitId);
@@ -236,34 +239,32 @@ export class StoreService {
         throw new UnauthorizedException('Nisit profile required before accessing store data.');
       }
 
-      normalizedMemberEmails = this.normalizeEmailsList(dto.memberEmails ?? []);
+      let normalizedMemberEmails = this.normalizeEmailsList(dto.memberEmails ?? []);
       normalizedMemberEmails = this.ensureEmailIncluded(normalizedMemberEmails, actor.email);
 
       if (normalizedMemberEmails.length < 3) {
         throw new BadRequestException('At least 3 member emails are required.');
       }
 
-      foundMembers = await this.repo.findNisitsByGmails(normalizedMemberEmails);
-      const conflicts = foundMembers.filter(
-        (member) => member.storeId && member.storeId !== storeId,
-      );
+      // ใช้ checkNisitEligibility เช็คสิทธิ์
+      emailStatus = await this.checkNisitEligibility(normalizedMemberEmails, storeId);
 
-      if (conflicts.length) {
-        const conflictEmails = conflicts
-          .map((member) => member.email ?? member.nisitId)
-          .filter(Boolean)
-          .join(', ');
-        throw new ConflictException(
-          `Members already assigned to another store: ${conflictEmails}`,
-        );
+      // แยกสมาชิกที่ Joined (ผ่านเกณฑ์) กับที่ไม่ผ่าน
+      const joinedEmails = emailStatus
+        .filter((s) => s.status === StoreMemberStatus.Joined)
+        .map((s) => s.email);
+
+      const otherEmails = emailStatus
+        .filter((s) => s.status !== StoreMemberStatus.Joined)
+        .map((s) => s.email);
+
+      // ดึงข้อมูล nisitId สำหรับคนที่ Joined เพื่อเอาไปผูกกับร้าน
+      if (joinedEmails.length > 0) {
+        foundMembers = await this.repo.findNisitsByGmails(joinedEmails);
       }
 
-      const existingEmails = new Set(
-        foundMembers
-          .map((member) => member.email?.trim().toLowerCase())
-          .filter((email): email is string => Boolean(email)),
-      );
-      missingEmails = normalizedMemberEmails.filter((email) => !existingEmails.has(email));
+      // คนที่ไม่ผ่านเกณฑ์ ให้เก็บลง attempt (ตาม logic เดิม)
+      missingEmails = otherEmails;
     }
 
     if (!shouldUpdateMembers && Object.keys(updateData).length === 0) {
@@ -306,6 +307,15 @@ export class StoreService {
         );
       }
 
+      // ถ้ามีการอัปเดตสมาชิก ให้ใช้ผลลัพธ์จาก checkNisitEligibility
+      // ถ้าไม่มีการอัปเดตสมาชิก ให้ใช้ข้อมูลจาก DB
+      const membersResponse = shouldUpdateMembers
+        ? emailStatus.sort((a, b) => a.email.localeCompare(b.email))
+        : this.mergeStoreMembers(
+          updatedStore.members ?? [],
+          updatedStore.memberAttemptEmails ?? [],
+        );
+
       return {
         id: updatedStore.id,
         storeName: updatedStore.storeName,
@@ -314,10 +324,7 @@ export class StoreService {
         type: updatedStore.type,
         state: updatedStore.state,
         storeAdminNisitId: updatedStore.storeAdminNisitId!,
-        members: this.mergeStoreMembers(
-          updatedStore.members ?? [],
-          updatedStore.memberAttemptEmails ?? [],
-        ),
+        members: membersResponse,
         boothLayoutMediaId: updatedStore.boothMediaId ?? null,
         createdAt: updatedStore.createdAt,
         updatedAt: updatedStore.updatedAt,
@@ -417,6 +424,24 @@ export class StoreService {
             message: membersOk
               ? undefined
               : 'ต้องมีสมาชิกที่ลงทะเบียนครบอย่างน้อย 3 คน',
+          },
+        ],
+      });
+
+      const memberInTraining = await this.repo.findNisitIdsInTraining(store.members?.map((member) => member.nisitId) ?? []);
+      const haveTraining = memberInTraining.length > 0;
+      sections.push({
+        key: 'training',
+        label: 'สมาชิกผ่านการอบรม',
+        ok: haveTraining,
+        items: [
+          {
+            key: 'member-in-training-count',
+            label: 'สมาชิกผ่านการอบรม',
+            ok: haveTraining,
+            message: haveTraining
+              ? undefined
+              : 'ต้องมีสมาชิกอย่างน้อยหนึ่งคนที่ผ่านการอบรม',
           },
         ],
       });
@@ -843,7 +868,8 @@ export class StoreService {
    * - Joined: เข้าร่วมร้านได้
    */
   async checkNisitEligibility(
-    emails: string[]
+    emails: string[],
+    currentStoreId?: number,
   ): Promise<Array<{ email: string; status: StoreMemberStatus }>> {
     // Normalize emails
     const normalizedEmails = this.normalizeEmailsList(emails);
@@ -875,7 +901,7 @@ export class StoreService {
       const normalizedEmail = nisit.email.trim().toLowerCase();
 
       // 1. เช็คว่าอยู่ในร้านอื่นหรือไม่
-      if (nisit.storeId !== null) {
+      if (nisit.storeId !== null && nisit.storeId !== currentStoreId) {
         resultMap.set(normalizedEmail, StoreMemberStatus.DuplicateStore);
         continue;
       }

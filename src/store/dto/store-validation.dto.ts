@@ -6,7 +6,8 @@ export type StoreValidationSectionKey =
   | 'members'
   | 'clubInfo'
   | 'storeDetail'
-  | 'goods';
+  | 'goods'
+  | 'training';
 
 export class StoreValidationChecklistItemDto {
   key: string;        // unique key ภายใน section

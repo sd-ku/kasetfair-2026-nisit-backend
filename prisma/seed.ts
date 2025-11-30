@@ -1,5 +1,7 @@
 // prisma/seed.ts
 import "dotenv/config";
+import * as fs from 'fs';
+import * as path from 'path';
 import { PrismaClient, StoreQuestionType, Prisma } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -95,25 +97,28 @@ const systemAdmins: Prisma.SystemAdminCreateManyInput[] = [
 
 const testNisitUsers: Prisma.NisitCreateManyInput[] = [
   {
-    nisitId: "6512345789",
+    nisitId: "6500000000",
     firstName: "สมชาย",
     lastName: "ใจดี",
     email: "somchai.j@ku.th",
     phone: "0812345678",
+    dormitoryTypeId: 1,
   },
   {
-    nisitId: "6523456789",
+    nisitId: "6511111111",
     firstName: "สมหญิง",
     lastName: "รักเรียน",
     email: "somying.r@ku.th",
     phone: "0823456789",
+    dormitoryTypeId: 2,
   },
   {
-    nisitId: "6534567890",
+    nisitId: "6522222222",
     firstName: "ประยุทธ",
     lastName: "มานะดี",
     email: "prayut.m@ku.th",
     phone: "0834567890",
+    dormitoryTypeId: 3,
   },
 ] as const;
 
@@ -217,6 +222,30 @@ async function main() {
     skipDuplicates: true,
   });
   console.log("✅ Seeded test nisit users successfully\n");
+
+  // Seed Nisit Training Participants
+  console.log("🎓 Seeding nisit training participants...");
+  try {
+    const trainingParticipantsPath = path.join(__dirname, 'nisit-training-participants.json');
+    if (fs.existsSync(trainingParticipantsPath)) {
+      const rawData = fs.readFileSync(trainingParticipantsPath, 'utf-8');
+      const nisitIds: string[] = JSON.parse(rawData);
+
+      console.log(`   Found ${nisitIds.length} participants to seed.`);
+
+      // Use createMany for better performance
+      await prisma.nisitTrainingParticipant.createMany({
+        data: nisitIds.map(id => ({ nisitId: id })),
+        skipDuplicates: true,
+      });
+
+      console.log("✅ Seeded nisit training participants successfully\n");
+    } else {
+      console.log("⚠️  nisit-training-participants.json not found, skipping.\n");
+    }
+  } catch (error) {
+    console.error("❌ Failed to seed nisit training participants:", error);
+  }
 
   console.log("🎉 Database seeding completed!");
 }
