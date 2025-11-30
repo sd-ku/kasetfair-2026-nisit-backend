@@ -8,6 +8,7 @@ import { UpdateDraftStoreRequestDto, UpdateDraftStoreResponseDto } from '../dto/
 import { StoreResponseDto } from '../dto/store-response.dto';
 import { StorePendingValidationResponseDto } from '../dto/store-validation.dto';
 import { StoreStatusResponseDto } from '../dto/store-state.dto'
+import { throwError } from 'rxjs';
 
 @Injectable()
 export class StoreDraftService extends StoreService {
@@ -22,7 +23,7 @@ export class StoreDraftService extends StoreService {
     nisitId: string,
     myGmail: string,
     createDto: CreateStoreRequestDto,
-  ): Promise<CreateStoreResponseDto> {
+  ): Promise<CreateStoreResponseDto | any> {
     const nisit = await this.draftRepo.findNisitByNisitId(nisitId);
     if (!nisit) throw new UnauthorizedException('Nisit profile required before accessing store data.');
     if (nisit.storeId) throw new ConflictException('You already have a store assigned.');
@@ -40,39 +41,39 @@ export class StoreDraftService extends StoreService {
     );
 
     if (normalized.length < 3) {
-      throw new BadRequestException('At least 3 member emails are required.');
+      throw new BadRequestException('ต้องมีสมาชิกอย่างน้อย 3 คน');
     }
 
-    // หารายชื่อนิสิตที่ส่งมาว่าสมัครหรือยัง
-    const found = await this.draftRepo.findNisitsByGmails(normalized);
-    const foundMapEmail = new Map(
-      found
-        .map((x) => {
-          const email = (x as any).gmail?.toLowerCase?.() ?? (x as any).email?.toLowerCase?.();
-          return email ? [email, x] as const : null;
-        })
-        .filter(Boolean) as ReadonlyArray<readonly [string, typeof found[number]]>,
-    );
+    const emailStatus = await this.checkNisitEligibility(normalized);
 
-    const alreadyAssigned = found.filter((x) => x.storeId);
-    if (alreadyAssigned.length) {
-      const list = alreadyAssigned
-        .map((x) => ((x as any).gmail ?? (x as any).email))
+    // เช็คว่ามีสมาชิกที่สามารถเข้าร่วมได้อย่างน้อย 3 คน
+    const eligibleMembers = emailStatus.filter((item) => item.status === StoreMemberStatus.Joined);
+
+    if (eligibleMembers.length < 3) {
+      const issues = emailStatus
+        .filter((item) => item.status !== StoreMemberStatus.Joined)
+        .map((item) => `${item.email}: ${item.status}`)
         .join(', ');
-      throw new ConflictException(`Members already assigned to another store: ${list}`);
+      throw new BadRequestException({
+        message: "ไม่สามารถสร้างร้านได้ โปรดตรวจสอบอีเมลของสมาชิก",
+        storeName: createDto.storeName,
+        storeState: StoreState.CreateStore,
+        members: emailStatus,
+      });
     }
 
-    const registeredEmails = new Set(foundMapEmail.keys());
-    const missingEmails = normalized.filter((e) => !registeredEmails.has(e));
+    // แยกข้อมูลสมาชิกที่เจอและที่ไม่เจอ
+    const eligibleEmails = new Set(eligibleMembers.map((item) => item.email));
+    const missingEmails = emailStatus
+      .filter((item) => item.status === StoreMemberStatus.NotFound)
+      .map((item) => item.email);
 
+    // ดึง nisitId ของสมาชิกที่สามารถเข้าร่วมได้
+    const found = await this.draftRepo.findNisitsByGmails(Array.from(eligibleEmails));
+
+    // กำหนด storeType และ state
     const storeType = createDto.type ?? StoreType.Nisit;
-
-    let state: StoreState;
-    if (missingEmails.length > 0) {
-      state = StoreState.CreateStore;
-    } else {
-      state = StoreState.Pending;
-    }
+    const state = missingEmails.length > 0 ? StoreState.CreateStore : StoreState.Pending;
 
     // รวมข้อมูลเพื่อสร้างร้าน
     const storeData = {
@@ -96,9 +97,15 @@ export class StoreDraftService extends StoreService {
         memberNisitIds: found.map((x) => x.nisitId),
         missingEmails,
       });
-      
-      return mapToCreateResponse(created, missingEmails);
-    } catch(err) {
+
+      return {
+        id: created.id,
+        storeName: created.storeName,
+        type: created.type,
+        state: created.state,
+        members: emailStatus,
+      };
+    } catch (err) {
       throw this.transformPrismaError(err);
     }
   }
@@ -155,14 +162,6 @@ export class StoreDraftService extends StoreService {
         updateData.state = stateAfterMembers;
       }
     }
-
-    // if (dto.boothMediaId !== undefined) {
-    //   const boothMediaId =
-    //     typeof dto.boothMediaId === 'string' ? dto.boothMediaId.trim() : null;
-    //   if (boothMediaId) {
-    //     updateData.state = StoreState.ProductDetails;
-    //   }
-    // }
 
     if (!shouldUpdateMembers && Object.keys(updateData).length === 0) {
       throw new BadRequestException('No fields provided to update.');

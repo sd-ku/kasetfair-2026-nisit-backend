@@ -44,6 +44,8 @@ enum StoreRole {
 
 enum StoreMemberStatus {
   NotFound
+  ProfileNotCompleted
+  DuplicateStore
   Invited
   Joined
   Declined

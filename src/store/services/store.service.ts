@@ -830,6 +830,74 @@ export class StoreService {
       typeof (error as { code: unknown }).code === 'string'
     );
   }
+
+  /**
+   * เช็คว่า nisit แต่ละคนมีสิทธิ์เข้าร่วมร้านหรือไม่
+   * @param emails - รายการอีเมลของ nisit ที่ต้องการเช็ค
+   * @returns รายการสถานะของแต่ละอีเมล
+   * 
+   * สถานะที่เป็นไปได้:
+   * - NotFound: ไม่เจอข้อมูลใน database
+   * - ProfileNotComplete: profile ไม่ครบ (ไม่มี email, phone, หรือ dormitoryTypeId)
+   * - DuplicateStore: อยู่ในร้านอื่นแล้ว
+   * - Joined: เข้าร่วมร้านได้
+   */
+  async checkNisitEligibility(
+    emails: string[]
+  ): Promise<Array<{ email: string; status: StoreMemberStatus }>> {
+    // Normalize emails
+    const normalizedEmails = this.normalizeEmailsList(emails);
+
+    if (normalizedEmails.length === 0) {
+      return [];
+    }
+
+    // หา nisit ทั้งหมดที่มีอีเมลตรงกับที่ระบุ
+    const nisits = await this.repo.client.nisit.findMany({
+      where: {
+        email: {
+          in: normalizedEmails,
+        },
+      },
+      select: {
+        email: true,
+        phone: true,
+        dormitoryTypeId: true,
+        storeId: true,
+      },
+    });
+
+    // สร้าง Map เพื่อเก็บผลลัพธ์
+    const resultMap = new Map<string, StoreMemberStatus>();
+
+    // เช็คแต่ละ nisit ที่เจอ
+    for (const nisit of nisits) {
+      const normalizedEmail = nisit.email.trim().toLowerCase();
+
+      // 1. เช็คว่าอยู่ในร้านอื่นหรือไม่
+      if (nisit.storeId !== null) {
+        resultMap.set(normalizedEmail, StoreMemberStatus.DuplicateStore);
+        continue;
+      }
+
+      // 2. เช็คว่า profile ครบหรือไม่
+      if (!nisit.phone || !nisit.dormitoryTypeId) {
+        resultMap.set(normalizedEmail, StoreMemberStatus.ProfileNotCompleted);
+        continue;
+      }
+
+      // 3. ถ้าผ่านทุกเงื่อนไข = สามารถเข้าร่วมได้
+      resultMap.set(normalizedEmail, StoreMemberStatus.Joined);
+    }
+
+    // สร้างผลลัพธ์สุดท้าย โดยเช็คทุกอีเมลที่ส่งมา
+    const results = normalizedEmails.map((email) => {
+      const status = resultMap.get(email) || StoreMemberStatus.NotFound;
+      return { email, status };
+    });
+
+    return results;
+  }
 }
 
 
