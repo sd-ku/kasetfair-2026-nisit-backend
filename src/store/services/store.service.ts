@@ -412,6 +412,9 @@ export class StoreService {
       const memberCount = store.members?.length ?? 0;
       const membersOk = memberCount >= 3;
 
+      const memberInTraining = await this.repo.findNisitIdsInTraining(store.members?.map((member) => member.nisitId) ?? []);
+      const haveTraining = memberInTraining.length > 0;
+
       sections.push({
         key: 'members',
         label: 'สมาชิกในร้าน',
@@ -425,23 +428,13 @@ export class StoreService {
               ? undefined
               : 'ต้องมีสมาชิกที่ลงทะเบียนครบอย่างน้อย 3 คน',
           },
-        ],
-      });
-
-      const memberInTraining = await this.repo.findNisitIdsInTraining(store.members?.map((member) => member.nisitId) ?? []);
-      const haveTraining = memberInTraining.length > 0;
-      sections.push({
-        key: 'training',
-        label: 'สมาชิกผ่านการอบรม',
-        ok: haveTraining,
-        items: [
           {
             key: 'member-in-training-count',
             label: 'สมาชิกผ่านการอบรม',
             ok: haveTraining,
             message: haveTraining
               ? undefined
-              : 'ต้องมีสมาชิกอย่างน้อยหนึ่งคนที่ผ่านการอบรม',
+              : 'ต้องมีสมาชิกอย่างน้อย 1 คนที่ผ่านการอบรม',
           },
         ],
       });

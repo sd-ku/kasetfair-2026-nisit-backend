@@ -1,4 +1,4 @@
-import { GoodsType, StoreType } from '@prisma/client';
+import { GoodsType, StoreType, StoreState } from '@prisma/client';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
@@ -51,8 +51,8 @@ export class UpdateDraftStoreRequestDto {
   @Transform(({ value }) =>
     Array.isArray(value)
       ? value
-          .map((entry) => (typeof entry === 'string' ? entry.trim() : entry))
-          .filter((entry) => entry !== '')
+        .map((entry) => (typeof entry === 'string' ? entry.trim() : entry))
+        .filter((entry) => entry !== '')
       : value,
   )
   @IsEmail({}, { each: true })
@@ -69,6 +69,9 @@ export class UpdateDraftStoreRequestDto {
 }
 
 export class UpdateDraftStoreResponseDto {
+  @ApiProperty({ example: 101 })
+  id: number;
+
   @ApiPropertyOptional({
     description: 'Update the display name of the store.',
     example: 'Kaset Fair Drinks',
@@ -95,34 +98,15 @@ export class UpdateDraftStoreResponseDto {
   @IsEnum(GoodsType)
   goodType: GoodsType | null;
 
-  @ApiPropertyOptional({
-    description: 'Complete list of store member emails (minimum 3).',
-    example: ['a@ku.th', 'b@ku.th', 'c@ku.th'],
-    isArray: true,
-    type: String,
-  })
-  @IsOptional()
-  @IsArray()
-  @ArrayMinSize(3)
-  @ArrayUnique((email: string) => (typeof email === 'string' ? email.toLowerCase() : email))
-  @Transform(({ value }) =>
-    Array.isArray(value)
-      ? value
-          .map((entry) => (typeof entry === 'string' ? entry.trim() : entry))
-          .filter((entry) => entry !== '')
-      : value,
-  )
-  @IsEmail({}, { each: true })
-  memberEmails: string[];
+  @ApiProperty({ enum: StoreState, example: StoreState.StoreDetails, readOnly: true })
+  state: StoreState;
 
   @ApiProperty({
-    type: String,
+    description: 'List of members with their status',
     isArray: true,
-    example: ['a@ku.th', 'b@ku.th'],
-    description: 'Emails of members whose profiles are incomplete',
-    readOnly: true,
+    example: [{ email: 'a@ku.th', status: 'Joined' }],
   })
-  missingProfileEmails: string[];
+  members: { email: string; status: string }[];
 
   @ApiPropertyOptional({
     description: 'Media ID for the booth image.',
@@ -164,8 +148,8 @@ export class UpdateStoreRequestDto {
   @Transform(({ value }) =>
     Array.isArray(value)
       ? value
-          .map((entry) => (typeof entry === 'string' ? entry.trim() : entry))
-          .filter((entry) => entry !== '')
+        .map((entry) => (typeof entry === 'string' ? entry.trim() : entry))
+        .filter((entry) => entry !== '')
       : value,
   )
   @IsEmail({}, { each: true })

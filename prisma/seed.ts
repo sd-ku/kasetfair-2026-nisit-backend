@@ -92,6 +92,40 @@ const systemAdmins: Prisma.SystemAdminCreateManyInput[] = [
 ] as const;
 
 // ===============================
+// Test Media
+// ===============================
+
+const testMedias: Prisma.MediaCreateManyInput[] = [
+  {
+    id: "media-uuid-1",
+    provider: "local",
+    mimeType: "image/jpeg",
+    purpose: "NISIT_CARD",
+    status: "UPLOADED",
+    originalName: "card1.jpg",
+    link: "https://via.placeholder.com/150",
+  },
+  {
+    id: "media-uuid-2",
+    provider: "local",
+    mimeType: "image/jpeg",
+    purpose: "NISIT_CARD",
+    status: "UPLOADED",
+    originalName: "card2.jpg",
+    link: "https://via.placeholder.com/150",
+  },
+  {
+    id: "media-uuid-3",
+    provider: "local",
+    mimeType: "image/jpeg",
+    purpose: "NISIT_CARD",
+    status: "UPLOADED",
+    originalName: "card3.jpg",
+    link: "https://via.placeholder.com/150",
+  },
+] as const;
+
+// ===============================
 // Test Nisit Users
 // ===============================
 
@@ -102,6 +136,7 @@ const testNisitUsers: Prisma.NisitCreateManyInput[] = [
     lastName: "ใจดี",
     email: "somchai.j@ku.th",
     phone: "0812345678",
+    nisitCardMediaId: "media-uuid-1",
     dormitoryTypeId: 1,
   },
   {
@@ -110,6 +145,7 @@ const testNisitUsers: Prisma.NisitCreateManyInput[] = [
     lastName: "รักเรียน",
     email: "somying.r@ku.th",
     phone: "0823456789",
+    nisitCardMediaId: "media-uuid-2",
     dormitoryTypeId: 2,
   },
   {
@@ -118,6 +154,7 @@ const testNisitUsers: Prisma.NisitCreateManyInput[] = [
     lastName: "มานะดี",
     email: "prayut.m@ku.th",
     phone: "0834567890",
+    nisitCardMediaId: "media-uuid-3",
     dormitoryTypeId: 3,
   },
 ] as const;
@@ -214,6 +251,14 @@ async function main() {
     skipDuplicates: true,
   });
   console.log("✅ Seeded system admins successfully\n");
+
+  // Seed Medias
+  console.log("🖼️ Seeding medias...");
+  await prisma.media.createMany({
+    data: testMedias,
+    skipDuplicates: true,
+  });
+  console.log("✅ Seeded medias successfully\n");
 
   // Seed Test Nisit Users
   console.log("👨‍🎓 Seeding test nisit users...");

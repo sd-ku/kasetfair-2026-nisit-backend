@@ -57,7 +57,7 @@ export class StoreDraftService extends StoreService {
       throw new BadRequestException({
         message: "ไม่สามารถสร้างร้านได้ โปรดตรวจสอบอีเมลของสมาชิก",
         storeName: createDto.storeName,
-        storeState: StoreState.CreateStore,
+        state: StoreState.CreateStore,
         members: emailStatus,
       });
     }
@@ -73,7 +73,7 @@ export class StoreDraftService extends StoreService {
 
     // กำหนด storeType และ state
     const storeType = createDto.type ?? StoreType.Nisit;
-    const state = missingEmails.length > 0 ? StoreState.CreateStore : StoreState.Pending;
+    const state = found.length >= 3 ? StoreState.Pending : StoreState.CreateStore;
 
     // รวมข้อมูลเพื่อสร้างร้าน
     const storeData = {
@@ -143,6 +143,23 @@ export class StoreDraftService extends StoreService {
         throw new BadRequestException('At least 3 member emails are required.');
       }
 
+      // Check eligibility like createForUser
+      const emailStatus = await this.checkNisitEligibility(normalizedMemberEmails, storeId);
+      const eligibleMembers = emailStatus.filter((item) => item.status === StoreMemberStatus.Joined);
+
+      if (eligibleMembers.length < 3) {
+        const issues = emailStatus
+          .filter((item) => item.status !== StoreMemberStatus.Joined)
+          .map((item) => `${item.email}: ${item.status}`)
+          .join(', ');
+        throw new BadRequestException({
+          message: "ไม่สามารถบันทึกร้านได้ โปรดตรวจสอบอีเมลของสมาชิก",
+          storeName: dto.storeName ?? store.storeName,
+          state: store.state,
+          members: emailStatus,
+        });
+      }
+
       foundMembers = await this.draftRepo.findNisitsByGmails(normalizedMemberEmails);
       const conflicts = foundMembers.filter(
         (member) => member.storeId && member.storeId !== storeId,
@@ -182,12 +199,6 @@ export class StoreDraftService extends StoreService {
             where: { id: storeId },
             data: updateData,
           });
-          return;
-        }
-
-        const current = await tx.store.findUnique({ where: { id: storeId } });
-        if (!current) {
-          throw new NotFoundException('Store not found after update.');
         }
       });
 
@@ -255,8 +266,10 @@ export class StoreDraftService extends StoreService {
     const store = await this.draftRepo.client.store.findUnique({
       where: { id: storeId },
       select: {
+        id: true,
         storeName: true,
         type: true,
+        state: true,
         goodType: true,
         boothMediaId: true,
         storeAdminNisitId: true,
@@ -270,39 +283,37 @@ export class StoreDraftService extends StoreService {
     }
 
     const normalize = (value?: string | null) => value?.trim().toLowerCase() ?? null;
-    const memberMap = new Map<string, string>();
-    const missingMap = new Map<string, string>();
+    const memberMap = new Map<string, { email: string, status: string }>();
 
-    const pushMember = (value?: string | null) => {
-      const normalized = normalize(value);
-      if (!normalized) return;
-      if (!memberMap.has(normalized)) {
-        memberMap.set(normalized, value?.trim() ?? normalized);
-      }
-    };
-
+    // Add existing members as Joined
     for (const member of store.members ?? []) {
-      pushMember(member.email);
+      const normalized = normalize(member.email);
+      if (normalized) {
+        memberMap.set(normalized, { email: member.email!, status: 'Joined' });
+      }
     }
 
+    // Add attempts with their status
     for (const attempt of store.memberAttemptEmails ?? []) {
-      pushMember(attempt.email);
-      if (attempt.status === StoreMemberStatus.NotFound) {
-        const normalized = normalize(attempt.email);
-        if (normalized && !missingMap.has(normalized)) {
-          missingMap.set(normalized, attempt.email?.trim() ?? normalized);
+      const normalized = normalize(attempt.email);
+      if (normalized) {
+        // If already exists (from members), it means they joined, so keep 'Joined'
+        // If not exists, use the status from attempt
+        if (!memberMap.has(normalized)) {
+          memberMap.set(normalized, { email: attempt.email, status: attempt.status });
         }
       }
     }
 
-    const sorter = (a: string, b: string) => a.localeCompare(b);
+    const sorter = (a: { email: string }, b: { email: string }) => a.email.localeCompare(b.email);
 
     return {
+      id: store.id,
       storeName: store.storeName,
       type: store.type,
+      state: store.state,
       goodType: store.goodType ?? null,
-      memberEmails: Array.from(memberMap.values()).sort(sorter),
-      missingProfileEmails: Array.from(missingMap.values()).sort(sorter),
+      members: Array.from(memberMap.values()).sort(sorter),
       boothMediaId: store.boothMediaId ?? null,
       storeAdminNisitId: store.storeAdminNisitId!,
     };

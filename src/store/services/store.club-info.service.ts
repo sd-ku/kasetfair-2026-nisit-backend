@@ -148,7 +148,7 @@ export class StoreClubInfoService extends StoreService {
       if (store.state === StoreState.ClubInfo && complete) {
         finalStore = await tx.store.update({
           where: { id: store.id },
-          data: { state: StoreState.CreateStore },
+          data: { state: StoreState.Pending },
           include: { clubInfo: true },
         });
       }
