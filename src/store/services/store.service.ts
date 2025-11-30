@@ -879,9 +879,13 @@ export class StoreService {
         },
       },
       select: {
+        firstName: true,
+        lastName: true,
+        nisitId: true,
         email: true,
         phone: true,
         dormitoryTypeId: true,
+        nisitCardMediaId: true,
         storeId: true,
       },
     });
@@ -900,7 +904,8 @@ export class StoreService {
       }
 
       // 2. เช็คว่า profile ครบหรือไม่
-      if (!nisit.phone || !nisit.dormitoryTypeId) {
+      if (!nisit.firstName || !nisit.lastName || !nisit.phone ||
+        !nisit.email || !nisit.dormitoryTypeId || !nisit.nisitCardMediaId) {
         resultMap.set(normalizedEmail, StoreMemberStatus.ProfileNotCompleted);
         continue;
       }
