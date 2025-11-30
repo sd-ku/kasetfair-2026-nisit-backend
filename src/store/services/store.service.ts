@@ -236,14 +236,14 @@ export class StoreService {
     if (shouldUpdateMembers) {
       const actor = await this.repo.findNisitByNisitId(nisitId);
       if (!actor?.email) {
-        throw new UnauthorizedException('Nisit profile required before accessing store data.');
+        throw new UnauthorizedException('ต้องมีข้อมูลโปรไฟล์นิสิตก่อนเข้าถึงข้อมูลร้านค้า');
       }
 
       let normalizedMemberEmails = this.normalizeEmailsList(dto.memberEmails ?? []);
       normalizedMemberEmails = this.ensureEmailIncluded(normalizedMemberEmails, actor.email);
 
       if (normalizedMemberEmails.length < 3) {
-        throw new BadRequestException('At least 3 member emails are required.');
+        throw new BadRequestException('ต้องมีสมาชิกอย่างน้อย 3 คน');
       }
 
       // ใช้ checkNisitEligibility เช็คสิทธิ์
@@ -268,7 +268,7 @@ export class StoreService {
     }
 
     if (!shouldUpdateMembers && Object.keys(updateData).length === 0) {
-      throw new BadRequestException('No fields provided to update.');
+      throw new BadRequestException('ไม่มีข้อมูลที่ต้องการอัปเดต');
     }
 
     try {
@@ -579,7 +579,7 @@ export class StoreService {
       throw new NotFoundException('Store not found.');
     }
     if (store.storeAdminNisitId !== nisitId) {
-      throw new ForbiddenException('You do not have permission to manage this store.');
+      throw new ForbiddenException('คุณไม่มีสิทธิ์จัดการร้านค้านี้');
     }
     return store.id;
   }

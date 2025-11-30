@@ -143,7 +143,7 @@ export class UpdateStoreRequestDto {
   })
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(3)
+  @ArrayMinSize(3, { message: 'สมาชิกในร้านต้องมีอย่างน้อย 3 คน' })
   @ArrayUnique((email: string) => (typeof email === 'string' ? email.toLowerCase() : email))
   @Transform(({ value }) =>
     Array.isArray(value)

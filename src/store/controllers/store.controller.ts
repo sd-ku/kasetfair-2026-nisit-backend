@@ -67,7 +67,6 @@ export class StoreController {
     if (!nisitId) {
       throw new UnauthorizedException('Missing user context.');
     }
-
     return this.storeService.updateStore(nisitId, dto);
   }
 
