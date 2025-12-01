@@ -418,7 +418,7 @@ export class StoreService {
       sections.push({
         key: 'members',
         label: 'สมาชิกในร้าน',
-        ok: membersOk,
+        ok: membersOk && haveTraining,
         items: [
           {
             key: 'members-count',
