@@ -56,30 +56,14 @@ export class GoogleAuthService {
       throw new UnauthorizedException('เฉพาะผู้ดูแลระบบเท่านั้นที่ได้รับอนุญาตให้เข้าสู่ระบบด้วย Google');
     }
 
-    const gmailIdentity = await this.auth.upsertIdentity('google', providerSub, providerEmail);
-    if (!gmailIdentity.providerSub || !gmailIdentity.providerEmail) {
-      throw new InternalServerErrorException('ข้อมูลระบุตัวตนของผู้ใช้ไม่สมบูรณ์หลังจาก upsert');
-    }
-
-    const nisitInfo = await this.auth.findNisitInfoByProviderSub('google', providerSub);
-
-    this.auth.issueAccessTokenForIdentity(
-      {
-        providerSub: gmailIdentity.providerSub,
-        providerEmail: gmailIdentity.providerEmail,
-        nisitId: nisitInfo?.nisitId,
-        firstName: nisitInfo?.firstName,
-        lastName: nisitInfo?.lastName,
-        phone: nisitInfo?.phone,
-      },
-      res,
-    );
+    // If admin found, issue admin token
+    this.auth.issueAccessTokenForAdmin(admin, res);
 
     return {
       message: 'Exchange successful',
       user: {
-        email: gmailIdentity.providerEmail,
-        profileComplete: Boolean(gmailIdentity.nisitId),
+        email: admin.email,
+        profileComplete: true,
       },
     };
   }
