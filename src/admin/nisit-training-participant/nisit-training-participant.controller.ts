@@ -35,9 +35,21 @@ export class NisitTrainingParticipantController {
         return this.service.upsert(dto);
     }
 
+    @Delete('delete-all')
+    @ApiOperation({ summary: 'Delete all participants from the table' })
+    deleteAll() {
+        return this.service.deleteAll();
+    }
+
     @Delete(':id')
     @ApiOperation({ summary: 'Remove participant' })
     remove(@Param('id') id: string) {
         return this.service.remove(id);
+    }
+
+    @Post('upsert-bulk')
+    @ApiOperation({ summary: 'Bulk upsert participants from array of Nisit IDs' })
+    upsertBulk(@Body() nisitIds: string[]) {
+        return this.service.upsertBulk(nisitIds);
     }
 }

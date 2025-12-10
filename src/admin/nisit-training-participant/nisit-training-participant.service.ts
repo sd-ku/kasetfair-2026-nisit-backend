@@ -86,4 +86,34 @@ export class NisitTrainingParticipantService {
             },
         });
     }
+
+    async upsertBulk(nisitIds: string[]) {
+        const results = await this.prisma.$transaction(async (prisma) => {
+            return Promise.all(
+                nisitIds.map(nisitId =>
+                    prisma.nisitTrainingParticipant.upsert({
+                        where: { nisitId },
+                        update: {},
+                        create: { nisitId },
+                    })
+                )
+            );
+        }, {
+            timeout: 20000, // This works with the callback overload
+        });
+
+        return {
+            message: `Successfully upserted ${results.length} participants`,
+            count: results.length,
+        };
+    }
+
+    async deleteAll() {
+        const result = await this.prisma.nisitTrainingParticipant.deleteMany({});
+
+        return {
+            message: `Successfully deleted all participants`,
+            count: result.count,
+        };
+    }
 }
