@@ -6,8 +6,6 @@ export class AdminGuard implements CanActivate {
         const request = context.switchToHttp().getRequest();
         const user = request.user;
 
-        console.log(request);
-
         if (!user || !user.adminRole) {
             throw new UnauthorizedException('Admin access required');
         }
