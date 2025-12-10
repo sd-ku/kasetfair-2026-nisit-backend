@@ -20,6 +20,11 @@ export class StoreController {
         return this.storeService.findAll(status, type, +page, +limit);
     }
 
+    @Get('stats')
+    async getStats() {
+        return this.storeService.getStats();
+    }
+
     @Patch(':id/state')
     async updateStatus(
         @Param('id', ParseIntPipe) id: number,
@@ -28,3 +33,4 @@ export class StoreController {
         return this.storeService.updateStatus(id, body.targetState);
     }
 }
+

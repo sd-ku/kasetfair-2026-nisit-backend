@@ -30,7 +30,7 @@ export class MediaController {
   constructor(
     private prisma: PrismaService,
     private readonly mediaService: MediaService,
-  ) {}
+  ) { }
 
   @Post('s3/presign')
   async presignUpload(
@@ -72,13 +72,13 @@ export class MediaController {
     return result
   }
 
-  @Get('s3/list')
-  async listAllMedia(
-    @Query('prefix') prefix?: string,
-  ) {
-    const objects = await this.mediaService.listMediaFromS3({ prefix });
-    return objects;
-  }
+  // @Get('s3/list')
+  // async listAllMedia(
+  //   @Query('prefix') prefix?: string,
+  // ) {
+  //   const objects = await this.mediaService.listMediaFromS3({ prefix });
+  //   return objects;
+  // }
 
   @Delete('s3/:mediaId')
   async deleteMedia(
