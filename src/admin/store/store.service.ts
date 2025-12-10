@@ -129,7 +129,7 @@ export class StoreService {
                     },
                 },
                 orderBy: {
-                    createdAt: 'desc',
+                    id: 'asc',
                 },
             }),
         ]);
@@ -149,5 +149,21 @@ export class StoreService {
             where: { id },
             data: { state: status },
         });
+    }
+
+    async getStats() {
+        const [total, validated, pending, rejected] = await Promise.all([
+            this.prisma.store.count(),
+            this.prisma.store.count({ where: { state: StoreState.Validated } }),
+            this.prisma.store.count({ where: { state: StoreState.Pending } }),
+            this.prisma.store.count({ where: { state: StoreState.Rejected } }),
+        ]);
+
+        return {
+            total,
+            validated,
+            pending,
+            rejected,
+        };
     }
 }
