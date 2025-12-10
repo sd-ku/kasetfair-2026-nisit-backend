@@ -5,10 +5,10 @@ import { AdminGuard } from '../admin.guard';
 import { NisitTrainingParticipantService } from './nisit-training-participant.service';
 import { UpsertNisitTrainingParticipantDto } from './dto/upsert-participant.dto';
 
-@ApiTags('admin/nisit-training-participant')
+@ApiTags('api/admin/nisit-training-participant')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, AdminGuard)
-@Controller('admin/nisit-training-participant')
+@Controller('api/admin/nisit-training-participant')
 export class NisitTrainingParticipantController {
     constructor(private readonly service: NisitTrainingParticipantService) { }
 

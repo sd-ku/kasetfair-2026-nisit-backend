@@ -16,7 +16,7 @@ export class NisitTrainingParticipantService {
             }
         } : {};
 
-        const [data, total] = await Promise.all([
+        const [participants, total] = await Promise.all([
             this.prisma.nisitTrainingParticipant.findMany({
                 where,
                 skip,
@@ -27,6 +27,34 @@ export class NisitTrainingParticipantService {
             }),
             this.prisma.nisitTrainingParticipant.count({ where })
         ]);
+
+        // Fetch nisit details for each participant
+        const nisitIds = participants.map(p => p.nisitId);
+        const nisits = await this.prisma.nisit.findMany({
+            where: {
+                nisitId: {
+                    in: nisitIds,
+                }
+            },
+            select: {
+                nisitId: true,
+                firstName: true,
+                lastName: true,
+            }
+        });
+
+        // Create a map for quick lookup
+        const nisitMap = new Map(nisits.map(n => [n.nisitId, n]));
+
+        // Combine data
+        const data = participants.map(participant => {
+            const nisit = nisitMap.get(participant.nisitId);
+            return {
+                nisitId: participant.nisitId,
+                firstName: nisit?.firstName || null,
+                lastName: nisit?.lastName || null,
+            };
+        });
 
         return {
             data,
