@@ -108,7 +108,7 @@ export class AuthService {
   }
 
   public setAuthCookie(res: Response | undefined, accessToken: string) {
-    if (!res || !this.shouldUseAuthCookie()) return;
+    if (!res) return;
     res.cookie('access_token', accessToken, this.getCookieOptions());
   }
 
@@ -138,6 +138,24 @@ export class AuthService {
         phone: user.phone,
         email: user.email,
         profileComplete: user.profileComplete,
+        typ: 'access',
+      },
+      { expiresIn: '1d' },
+    );
+  }
+
+  public mintAdminToken(
+    admin: {
+      id: string;
+      email: string;
+      role: string;
+    },
+  ): string {
+    return this.jwt.sign(
+      {
+        sub: admin.id,
+        email: admin.email,
+        adminRole: admin.role,
         typ: 'access',
       },
       { expiresIn: '1d' },
@@ -174,4 +192,20 @@ export class AuthService {
 
     return accessToken;
   }
+
+  public issueAccessTokenForAdmin(
+    admin: {
+      id: string;
+      email: string;
+      role: string;
+    },
+    res?: Response,
+  ) {
+    const accessToken = this.mintAdminToken(admin);
+    // res?.cookie('access_token', accessToken, this.getCookieOptions());
+    this.setAuthCookie(res, accessToken);
+    return accessToken;
+  }
+
+
 }

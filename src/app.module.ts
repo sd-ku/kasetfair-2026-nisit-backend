@@ -9,6 +9,7 @@ import { StoreModule } from './store/store.module';
 import { MediaModule } from './media/media.module';
 import { ConsentModule } from './consent/consent.module';
 import { DormitoryModule } from './dormitory/dormitory.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -19,9 +20,10 @@ import { DormitoryModule } from './dormitory/dormitory.module';
     StoreModule,
     MediaModule,
     ConsentModule,
-    DormitoryModule
+    DormitoryModule,
+    AdminModule
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

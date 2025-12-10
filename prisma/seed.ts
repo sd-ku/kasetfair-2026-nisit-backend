@@ -269,28 +269,28 @@ async function main() {
   console.log("✅ Seeded test nisit users successfully\n");
 
   // Seed Nisit Training Participants
-  console.log("🎓 Seeding nisit training participants...");
-  try {
-    const trainingParticipantsPath = path.join(__dirname, 'nisit-training-participants.json');
-    if (fs.existsSync(trainingParticipantsPath)) {
-      const rawData = fs.readFileSync(trainingParticipantsPath, 'utf-8');
-      const nisitIds: string[] = JSON.parse(rawData);
+  // console.log("🎓 Seeding nisit training participants...");
+  // try {
+  //   const trainingParticipantsPath = path.join(__dirname, 'nisit-training-participants.json');
+  //   if (fs.existsSync(trainingParticipantsPath)) {
+  //     const rawData = fs.readFileSync(trainingParticipantsPath, 'utf-8');
+  //     const nisitIds: string[] = JSON.parse(rawData);
 
-      console.log(`   Found ${nisitIds.length} participants to seed.`);
+  //     console.log(`   Found ${nisitIds.length} participants to seed.`);
 
-      // Use createMany for better performance
-      await prisma.nisitTrainingParticipant.createMany({
-        data: nisitIds.map(id => ({ nisitId: id })),
-        skipDuplicates: true,
-      });
+  //     // Use createMany for better performance
+  //     await prisma.nisitTrainingParticipant.createMany({
+  //       data: nisitIds.map(id => ({ nisitId: id })),
+  //       skipDuplicates: true,
+  //     });
 
-      console.log("✅ Seeded nisit training participants successfully\n");
-    } else {
-      console.log("⚠️  nisit-training-participants.json not found, skipping.\n");
-    }
-  } catch (error) {
-    console.error("❌ Failed to seed nisit training participants:", error);
-  }
+  //     console.log("✅ Seeded nisit training participants successfully\n");
+  //   } else {
+  //     console.log("⚠️  nisit-training-participants.json not found, skipping.\n");
+  //   }
+  // } catch (error) {
+  //   console.error("❌ Failed to seed nisit training participants:", error);
+  // }
 
   console.log("🎉 Database seeding completed!");
 }
