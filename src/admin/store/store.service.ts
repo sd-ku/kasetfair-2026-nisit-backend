@@ -6,7 +6,7 @@ import { StoreState, StoreType } from '@prisma/client';
 export class StoreService {
     constructor(private readonly prisma: PrismaService) { }
 
-    async findAll(status?: StoreState, type?: StoreType, page: number = 1, limit: number = 10) {
+    async findAll(status?: StoreState, type?: StoreType, search?: string, page: number = 1, limit: number = 10) {
         const where: any = {};
 
         if (status) {
@@ -15,6 +15,36 @@ export class StoreService {
 
         if (type) {
             where.type = type;
+        }
+
+        // Add search functionality for storeName, id, and boothNumber
+        if (search) {
+            const searchTrimmed = search.trim();
+            const searchAsNumber = parseInt(searchTrimmed);
+
+            where.OR = [
+                // Search by store name (case-insensitive partial match)
+                {
+                    storeName: {
+                        contains: searchTrimmed,
+                        mode: 'insensitive',
+                    },
+                },
+                // Search by booth number (case-insensitive partial match)
+                {
+                    boothNumber: {
+                        contains: searchTrimmed,
+                        mode: 'insensitive',
+                    },
+                },
+            ];
+
+            // If search is a valid number, also search by ID (exact match)
+            if (!isNaN(searchAsNumber)) {
+                where.OR.push({
+                    id: searchAsNumber,
+                });
+            }
         }
 
         const skip = (page - 1) * limit;

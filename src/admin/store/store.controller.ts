@@ -14,10 +14,11 @@ export class StoreController {
     async findAll(
         @Query('status') status?: StoreState,
         @Query('type') type?: StoreType,
+        @Query('search') search?: string,
         @Query('page') page: string = '1',
         @Query('limit') limit: string = '10',
     ) {
-        return this.storeService.findAll(status, type, +page, +limit);
+        return this.storeService.findAll(status, type, search, +page, +limit);
     }
 
     @Get('stats')
