@@ -125,36 +125,47 @@ export class StoreClubInfoService extends StoreService {
       leaderNisitId: dto.leaderNisitId,
     };
 
-    return this.repo.client.$transaction(async (tx) => {
-      // ให้ repo จัดการสร้าง store + clubInfo ให้เลย
-      const { store, clubInfo } = await this.repo.createClubStoreWithInfo(
-        tx,
-        actorNisitId,
-        payload,
-      );
+    try {
+      return await this.repo.client.$transaction(async (tx) => {
+        // ให้ repo จัดการสร้าง store + clubInfo ให้เลย
+        const { store, clubInfo } = await this.repo.createClubStoreWithInfo(
+          tx,
+          actorNisitId,
+          payload,
+        );
 
-      // เช็คว่า club info ครบไหม
-      const complete = this.isObjectComplete(clubInfo, [
-        'clubName',
-        'leaderFirstName',
-        'leaderLastName',
-        'leaderEmail',
-        'leaderPhone',
-        'leaderNisitId',
-        // 'clubApplicationMediaId',
-      ] as (keyof typeof clubInfo)[]);
+        // เช็คว่า club info ครบไหม
+        const complete = this.isObjectComplete(clubInfo, [
+          'clubName',
+          'leaderFirstName',
+          'leaderLastName',
+          'leaderEmail',
+          'leaderPhone',
+          'leaderNisitId',
+          // 'clubApplicationMediaId',
+        ] as (keyof typeof clubInfo)[]);
 
-      let finalStore = store
-      if (store.state === StoreState.ClubInfo && complete) {
-        finalStore = await tx.store.update({
-          where: { id: store.id },
-          data: { state: StoreState.Pending },
-          include: { clubInfo: true },
-        });
+        let finalStore = store
+        if (store.state === StoreState.ClubInfo && complete) {
+          finalStore = await tx.store.update({
+            where: { id: store.id },
+            data: { state: StoreState.Pending },
+            include: { clubInfo: true },
+          });
+        }
+
+        return finalStore;
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          dto.clubName
+            ? `ชื่อชมรม "${dto.clubName}" มีอยู่ในระบบแล้ว`
+            : 'ชื่อชมรมตั้งต้นของระบบซ้ำ กรุณาระบุชื่อชมรมใหม่',
+        );
       }
-
-      return finalStore;
-    });
+      throw error;
+    }
   }
 
   async getClubInfo(
