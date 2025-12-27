@@ -227,6 +227,24 @@ export class StoreService {
       throw new ForbiddenException('เฉพาะผู้ดูแลร้านเท่านั้นที่สามารถแก้ไขร้านได้');
     }
 
+    // ตรวจสอบ storeName ซ้ำ (ยกเว้นร้านที่ถูกลบ)
+    if (dto.storeName !== undefined) {
+      const trimmedStoreName = dto.storeName.trim();
+      if (trimmedStoreName) {
+        const existingStore = await this.repo.client.store.findFirst({
+          where: {
+            storeName: trimmedStoreName,
+            state: { not: StoreState.deleted },
+            id: { not: storeId }, // ไม่นับร้านตัวเอง
+          },
+        });
+
+        if (existingStore) {
+          throw new ConflictException('มีชื่อร้านนี้อยู่ในระบบแล้ว โปรดใช้ชื่ออื่น');
+        }
+      }
+    }
+
     const updateData = this.buildUpdateData(dto);
     const shouldUpdateMembers = Array.isArray(dto.memberEmails);
     let foundMembers: Awaited<ReturnType<typeof this.repo.findNisitsByGmails>> = [];

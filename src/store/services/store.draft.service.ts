@@ -44,6 +44,21 @@ export class StoreDraftService extends StoreService {
       throw new BadRequestException('ต้องมีสมาชิกอย่างน้อย 3 คน');
     }
 
+    // ตรวจสอบ storeName ซ้ำ (ยกเว้นร้านที่ถูกลบ)
+    const trimmedStoreName = createDto.storeName.trim();
+    if (trimmedStoreName) {
+      const existingStore = await this.draftRepo.client.store.findFirst({
+        where: {
+          storeName: trimmedStoreName,
+          state: { not: StoreState.deleted },
+        },
+      });
+
+      if (existingStore) {
+        throw new ConflictException('มีชื่อร้านนี้อยู่ในระบบแล้ว โปรดใช้ชื่ออื่น');
+      }
+    }
+
     const emailStatus = await this.checkNisitEligibility(normalized);
 
     // เช็คว่ามีสมาชิกที่สามารถเข้าร่วมได้อย่างน้อย 3 คน
@@ -122,6 +137,24 @@ export class StoreDraftService extends StoreService {
     const store = await this.draftRepo.findStoreById(storeId);
     if (!store) {
       throw new NotFoundException('Store not found.');
+    }
+
+    // ตรวจสอบ storeName ซ้ำ (ยกเว้นร้านที่ถูกลบ)
+    if (dto.storeName !== undefined) {
+      const trimmedStoreName = dto.storeName.trim();
+      if (trimmedStoreName) {
+        const existingStore = await this.draftRepo.client.store.findFirst({
+          where: {
+            storeName: trimmedStoreName,
+            state: { not: StoreState.deleted },
+            id: { not: storeId }, // ไม่นับร้านตัวเอง
+          },
+        });
+
+        if (existingStore) {
+          throw new ConflictException('มีชื่อร้านนี้อยู่ในระบบแล้ว โปรดใช้ชื่ออื่น');
+        }
+      }
     }
 
     const updateData = this.buildUpdateData(dto);

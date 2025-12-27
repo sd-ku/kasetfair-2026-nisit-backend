@@ -168,7 +168,7 @@ model Nisit {
 
 model Store {
   id          Int        @id @default(autoincrement())
-  storeName   String     @unique
+  storeName   String
   boothNumber String?    @unique
   type        StoreType
   state       StoreState @default(CreateStore)
@@ -193,6 +193,7 @@ model Store {
   questionAnswers     StoreQuestionAnswer[]
   reviewDrafts        StoreReviewDraft[]
 
+  @@index([storeName, state])
   @@index([type])
   @@index([state])
   @@map("store")
