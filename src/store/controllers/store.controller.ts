@@ -24,6 +24,7 @@ import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { StoreResponseDto } from 'src/store/dto/store-response.dto';
 import { UpdateStoreRequestDto } from 'src/store/dto/update-store.dto';
 import { StoreService } from 'src/store/services/store.service';
+import { RegistrationLockGuard } from '../guards/registration-lock.guard';
 
 type AuthenticatedRequest = Request & { user };
 
@@ -35,6 +36,7 @@ export class StoreController {
   constructor(private readonly storeService: StoreService) { }
 
   @Delete('mine/members/me')
+  @UseGuards(RegistrationLockGuard)
   @ApiOperation({ summary: 'Leave the current store as the authenticated member.' })
   @ApiOkResponse({
     type: StoreResponseDto,
@@ -54,6 +56,7 @@ export class StoreController {
   }
 
   @Patch('mine')
+  @UseGuards(RegistrationLockGuard)
   @ApiOperation({ summary: 'Update store details for the authenticated user store.' })
   @ApiOkResponse({ type: StoreResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid store payload.' })
@@ -100,6 +103,7 @@ export class StoreController {
   }
 
   @Patch("mine/transfer-admin")
+  @UseGuards(RegistrationLockGuard)
   async transferStoreAdmin(
     @Req() req: AuthenticatedRequest,
     @Body() dto,

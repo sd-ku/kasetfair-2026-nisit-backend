@@ -356,3 +356,15 @@ model SystemAdmin {
 
   @@map("system_admin")
 }
+
+model RegistrationSettings {
+  id                Int      @id @default(autoincrement())
+  isManuallyLocked  Boolean  @default(false)  // Admin สามารถ lock/unlock manual ได้
+  registrationStart DateTime?                 // เวลาเริ่มลงทะเบียน (optional)
+  registrationEnd   DateTime?                 // เวลาสิ้นสุดลงทะเบียน (optional)
+  lockMessage       String   @default("ขณะนี้หมดเวลาลงทะเบียนแล้ว กรุณาติดต่อเจ้าหน้าที่หากมีข้อสงสัย")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("registration_settings")
+}

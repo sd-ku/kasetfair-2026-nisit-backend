@@ -14,9 +14,11 @@ import { StoreGoodRepository } from './repositories/store.good.repository';
 import { StoreQuestionRepository } from './repositories/store.question.repository';
 import { NisitModule } from 'src/nisit/nisit.module';
 import { StoreQuestionService } from './services/store.question.service';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { RegistrationLockGuard } from './guards/registration-lock.guard';
 
 @Module({
-  imports: [NisitModule],
+  imports: [NisitModule, PrismaModule],
   controllers: [StoreController, StoreClubInfoController, GoodController, StoreDraftController, StoreQuestionController],
   providers: [
     StoreService,
@@ -28,6 +30,8 @@ import { StoreQuestionService } from './services/store.question.service';
     StoreDraftRepository,
     StoreGoodRepository,
     StoreQuestionRepository,
+    RegistrationLockGuard,
   ],
 })
-export class StoreModule {}
+export class StoreModule { }
+

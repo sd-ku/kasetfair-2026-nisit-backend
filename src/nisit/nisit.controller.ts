@@ -28,6 +28,7 @@ import { NisitService } from './nisit.service';
 import { AuthService } from 'src/auth/services/auth.service';
 import { getAuthStatusRequestDto, getAuthStatusResponeDto } from './dto/status.dto';
 import type { Response } from 'express';
+import { RegistrationLockGuard } from 'src/store/guards/registration-lock.guard';
 
 
 type AuthenticatedRequest = Request & { user?: { userId?: string, email?: string, profileComplete?: boolean } };
@@ -41,7 +42,7 @@ export class NisitController {
     private readonly authService: AuthService,
   ) { }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RegistrationLockGuard)
   @Post('register')
   @ApiOperation({ summary: 'Register a new Nisit profile.' })
   @ApiCreatedResponse({ type: NisitResponseDto })
@@ -86,7 +87,7 @@ export class NisitController {
     return this.nisitService.getNisitInfoBySubId(userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RegistrationLockGuard)
   @Patch('info')
   @ApiOperation({ summary: 'Update the authenticated Nisit profile.' })
   @ApiBearerAuth()
