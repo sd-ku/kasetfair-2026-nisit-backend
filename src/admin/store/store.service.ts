@@ -6,7 +6,7 @@ import { StoreState, StoreType } from '@prisma/client';
 export class StoreService {
     constructor(private readonly prisma: PrismaService) { }
 
-    async findAll(status?: StoreState, type?: StoreType, search?: string, page: number = 1, limit: number = 10) {
+    async findAll(status?: StoreState, type?: StoreType, search?: string, sort: 'id' | 'name' = 'id', page: number = 1, limit: number = 10) {
         const where: any = {};
 
         if (status) {
@@ -48,6 +48,13 @@ export class StoreService {
         }
 
         const skip = (page - 1) * limit;
+
+        const orderBy: any = {};
+        if (sort === 'name') {
+            orderBy.storeName = 'asc';
+        } else {
+            orderBy.id = 'asc';
+        }
 
         const [total, stores] = await Promise.all([
             this.prisma.store.count({ where }),
@@ -158,9 +165,7 @@ export class StoreService {
                         },
                     },
                 },
-                orderBy: {
-                    id: 'asc',
-                },
+                orderBy,
             }),
         ]);
 

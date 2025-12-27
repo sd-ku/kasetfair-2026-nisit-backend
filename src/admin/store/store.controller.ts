@@ -15,10 +15,11 @@ export class StoreController {
         @Query('status') status?: StoreState,
         @Query('type') type?: StoreType,
         @Query('search') search?: string,
+        @Query('sort') sort: 'id' | 'name' = 'id',
         @Query('page') page: string = '1',
         @Query('limit') limit: string = '10',
     ) {
-        return this.storeService.findAll(status, type, search, +page, +limit);
+        return this.storeService.findAll(status, type, search, sort, +page, +limit);
     }
 
     @Get('stats')
