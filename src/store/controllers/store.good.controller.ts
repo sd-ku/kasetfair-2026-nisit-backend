@@ -28,6 +28,8 @@ import { JwtAuthGuard } from 'src/auth/jwt.guard';
 import { StoreGoodService } from 'src/store/services/store.good.service';
 import { CreateGoodDto, GoodsResponseDto, UpdateGoodDto } from 'src/store/dto/goods.dto';
 
+import { RegistrationLockGuard } from '../guards/registration-lock.guard';
+
 type AuthenticatedRequest = Request & { user };
 
 @ApiTags('Store')
@@ -35,7 +37,7 @@ type AuthenticatedRequest = Request & { user };
 @UseGuards(JwtAuthGuard)
 @Controller('api/store')
 export class GoodController {
-  constructor(private readonly storeGoodService: StoreGoodService) {}
+  constructor(private readonly storeGoodService: StoreGoodService) { }
 
   @Get('goods')
   @ApiOperation({ summary: 'List all goods for the authenticated user store.' })
@@ -50,6 +52,7 @@ export class GoodController {
   }
 
   @Post('goods')
+  @UseGuards(RegistrationLockGuard)
   @ApiOperation({ summary: 'Create a good for the authenticated user store.' })
   @ApiCreatedResponse({ type: GoodsResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid payload.' })
@@ -83,6 +86,7 @@ export class GoodController {
   }
 
   @Patch('goods/:goodId')
+  @UseGuards(RegistrationLockGuard)
   @ApiOperation({ summary: 'Update a good belonging to the user store.' })
   @ApiOkResponse({ type: GoodsResponseDto })
   @ApiBadRequestResponse({ description: 'No valid fields provided.' })
@@ -103,6 +107,7 @@ export class GoodController {
 
   @Delete('goods/:goodId')
   @HttpCode(204)
+  @UseGuards(RegistrationLockGuard)
   @ApiOperation({ summary: 'Delete a good from the user store.' })
   @ApiNoContentResponse({ description: 'Good deleted.' })
   @ApiNotFoundResponse({ description: 'Good not found.' })
