@@ -5,9 +5,10 @@ import { NisitTrainingParticipantService } from './nisit-training-participant/ni
 import { AdminStoreModule } from './store/store.module';
 import { AdminMediaModule } from './media/media.module';
 import { RegistrationModule } from './registration/registration.module';
+import { AdminNisitModule } from './nisit/nisit.module';
 
 @Module({
-    imports: [AdminStoreModule, AdminMediaModule, RegistrationModule],
+    imports: [AdminStoreModule, AdminMediaModule, RegistrationModule, AdminNisitModule],
     controllers: [NisitTrainingParticipantController],
     providers: [NisitTrainingParticipantService],
 })

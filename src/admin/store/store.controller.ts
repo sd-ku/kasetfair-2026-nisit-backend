@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards, Patch, Param, Body, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Patch, Param, Body, ParseIntPipe, Post, Request } from '@nestjs/common';
 import { StoreService } from './store.service';
 import { JwtAuthGuard } from '../../auth/jwt.guard';
 import { AdminGuard } from '../admin.guard';
@@ -33,6 +33,12 @@ export class StoreController {
         @Body() body: UpdateStoreStatusDto,
     ) {
         return this.storeService.updateStatus(id, body.targetState);
+    }
+
+    @Post('validate-all')
+    async validateAllStores(@Request() req: any) {
+        const adminId = req.user.userId;
+        return this.storeService.validateAllStores(adminId);
     }
 }
 
