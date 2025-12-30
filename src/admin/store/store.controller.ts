@@ -40,5 +40,24 @@ export class StoreController {
         const adminId = req.user.userId;
         return this.storeService.validateAllStores(adminId);
     }
+
+    @Post(':id/validate')
+    async validateSingleStore(
+        @Param('id', ParseIntPipe) id: number,
+        @Request() req: any
+    ) {
+        const adminId = req.user.userId;
+        return this.storeService.validateSingleStore(id, adminId);
+    }
+
+    @Post('merge-review-status')
+    async mergeAllReviewStatus() {
+        return this.storeService.mergeReviewStatus();
+    }
+
+    @Post(':id/merge-review-status')
+    async mergeSingleReviewStatus(@Param('id', ParseIntPipe) id: number) {
+        return this.storeService.mergeReviewStatus(id);
+    }
 }
 
