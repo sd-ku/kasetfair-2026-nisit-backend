@@ -555,7 +555,7 @@ export class StoreService {
                 // Map ReviewStatus to StoreState
                 switch (draft.status) {
                     case ReviewStatus.Pending:
-                        newState = StoreState.Pending;
+                        newState = StoreState.Validated;
                         break;
                     case ReviewStatus.NeedFix:
                         newState = StoreState.Rejected; // ส่งกลับไปให้แก้ไข

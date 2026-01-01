@@ -369,3 +369,25 @@ model RegistrationSettings {
 
   @@map("registration_settings")
 }
+
+model LuckyDraw {
+  id        Int      @id @default(autoincrement())
+  winner    String
+  createdAt DateTime @default(now())
+
+  @@map("lucky_draw")
+}
+
+model LuckyDrawEntry {
+  id        Int      @id @default(autoincrement())
+  storeId   Int
+  storeName String
+  isDrawn   Boolean  @default(false)  // true = ถูกสุ่มไปแล้ว
+  drawnAt   DateTime?                 // เวลาที่ถูกสุ่ม
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isDrawn])
+  @@index([storeId])
+  @@map("lucky_draw_entry")
+}

@@ -1,0 +1,123 @@
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateLuckyDrawDto } from './dto/create-lucky-draw.dto';
+import { GenerateWheelDto, GenerateWheelResponseDto } from './dto/generate-wheel.dto';
+
+@Injectable()
+export class LuckyDrawService {
+    constructor(
+        private readonly prisma: PrismaService,
+    ) { }
+
+    async create(createLuckyDrawDto: CreateLuckyDrawDto) {
+        return this.prisma.luckyDraw.create({
+            data: {
+                winner: createLuckyDrawDto.winner,
+            },
+        });
+    }
+
+    async findAll() {
+        return this.prisma.luckyDraw.findMany({
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+    }
+
+    /**
+     * สร้าง/อัพเดท wheel entries จาก stores ใน database
+     * ใช้สำหรับโหลดรายชื่อร้านเข้าวงล้อ
+     */
+    async generateWheel(generateWheelDto: GenerateWheelDto): Promise<GenerateWheelResponseDto> {
+        // Step 1: Query stores from database
+        const stores = await this.prisma.store.findMany({
+            where: generateWheelDto.state ? {
+                state: generateWheelDto.state
+            } : undefined,
+            select: {
+                id: true,
+                storeName: true,
+            },
+            orderBy: {
+                id: 'asc',
+            },
+        });
+
+        if (stores.length === 0) {
+            throw new HttpException(
+                'ไม่พบร้านค้าที่ตรงตามเงื่อนไข',
+                HttpStatus.NOT_FOUND
+            );
+        }
+
+        // Step 2: Clear existing entries and create new ones
+        await this.prisma.luckyDrawEntry.deleteMany({});
+
+        await this.prisma.luckyDrawEntry.createMany({
+            data: stores.map(store => ({
+                storeId: store.id,
+                storeName: store.storeName,
+            })),
+        });
+
+        // Step 3: Return entries for frontend
+        const entries = stores.map(store => `${store.id}. ${store.storeName}`);
+
+        return {
+            wheelPath: '', // ไม่ใช้ API แล้ว ส่งค่าว่างไป
+            totalStores: stores.length,
+            entries: entries, // ส่ง entries กลับไปให้ frontend
+        };
+    }
+
+    /**
+     * ดึง entries ทั้งหมดที่ยังไม่ถูกสุ่ม
+     * ใช้สำหรับกรณี refresh หน้า
+     */
+    async getActiveEntries() {
+        const entries = await this.prisma.luckyDrawEntry.findMany({
+            where: {
+                isDrawn: false,
+            },
+            orderBy: {
+                storeId: 'asc',
+            },
+        });
+
+        return entries.map(entry => `${entry.storeId}. ${entry.storeName}`);
+    }
+
+    /**
+     * ทำเครื่องหมายว่าร้านนี้ถูกสุ่มไปแล้ว
+     * เรียกเมื่อมีผู้ชนะ
+     */
+    async markAsDrawn(winnerText: string) {
+        // Extract store ID from winner text (format: "123. Store Name")
+        const match = winnerText.match(/^(\d+)\./);
+        if (!match) {
+            return; // ถ้า format ไม่ตรง ข้าม
+        }
+
+        const storeId = parseInt(match[1]);
+
+        await this.prisma.luckyDrawEntry.updateMany({
+            where: {
+                storeId: storeId,
+                isDrawn: false,
+            },
+            data: {
+                isDrawn: true,
+                drawnAt: new Date(),
+            },
+        });
+    }
+
+    /**
+     * Reset ทุกอย่าง เริ่มต้นใหม่
+     */
+    async resetWheel() {
+        await this.prisma.luckyDrawEntry.deleteMany({});
+        return { message: 'Wheel reset successfully' };
+    }
+}

@@ -7,8 +7,10 @@ import { AdminMediaModule } from './media/media.module';
 import { RegistrationModule } from './registration/registration.module';
 import { AdminNisitModule } from './nisit/nisit.module';
 
+import { LuckyDrawModule } from './lucky-draw/lucky-draw.module';
+
 @Module({
-    imports: [AdminStoreModule, AdminMediaModule, RegistrationModule, AdminNisitModule],
+    imports: [AdminStoreModule, AdminMediaModule, RegistrationModule, AdminNisitModule, LuckyDrawModule],
     controllers: [NisitTrainingParticipantController],
     providers: [NisitTrainingParticipantService],
 })
