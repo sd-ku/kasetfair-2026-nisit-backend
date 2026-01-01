@@ -1,0 +1,179 @@
+import {
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    ParseIntPipe,
+    Post,
+    Query,
+} from '@nestjs/common';
+import { BoothService } from './booth.service';
+import {
+    ImportBoothRangeDto,
+    ImportBoothListDto,
+    CreateBoothAssignmentDto,
+    VerifyBoothAssignmentDto,
+    VerifyByStoreIdDto,
+    ForfeitBoothAssignmentDto,
+} from './dto/booth.dto';
+import { BoothZone, BoothAssignmentStatus } from '@prisma/client';
+
+@Controller('api/admin/booth')
+export class BoothController {
+    constructor(private readonly boothService: BoothService) { }
+
+    // ----- Booth Management -----
+
+    /**
+     * Import booth แบบ range
+     * POST /api/admin/booth/import-range
+     * Body: { ranges: [{ prefix: "M", start: 1, end: 20, zone: "FOOD" }] }
+     */
+    @Post('import-range')
+    importBoothRange(@Body() dto: ImportBoothRangeDto) {
+        return this.boothService.importBoothRange(dto);
+    }
+
+    /**
+     * Import booth แบบ list
+     * POST /api/admin/booth/import-list
+     * Body: { lists: [{ boothNumbers: ["M55", "M60"], zone: "NON_FOOD" }] }
+     */
+    @Post('import-list')
+    importBoothList(@Body() dto: ImportBoothListDto) {
+        return this.boothService.importBoothList(dto);
+    }
+
+    /**
+     * ดึง booth ทั้งหมด
+     * GET /api/admin/booth?zone=FOOD&isAssigned=true
+     */
+    @Get()
+    findAllBooths(
+        @Query('zone') zone?: BoothZone,
+        @Query('isAssigned') isAssigned?: string,
+    ) {
+        const isAssignedBool = isAssigned === 'true' ? true : isAssigned === 'false' ? false : undefined;
+        return this.boothService.findAllBooths(zone, isAssignedBool);
+    }
+
+    /**
+     * ลบ booth
+     * DELETE /api/admin/booth/:id
+     */
+    @Delete(':id')
+    deleteBooth(@Param('id', ParseIntPipe) id: number) {
+        return this.boothService.deleteBooth(id);
+    }
+
+    /**
+     * ลบ booth ทั้งหมด
+     * DELETE /api/admin/booth/all
+     */
+    @Delete('all/reset')
+    deleteAllBooths() {
+        return this.boothService.deleteAllBooths();
+    }
+
+    // ----- Stats -----
+
+    /**
+     * ดึงสถิติ booth
+     * GET /api/admin/booth/stats
+     */
+    @Get('stats')
+    getStats() {
+        return this.boothService.getStats();
+    }
+
+    /**
+     * ดึง booth ว่างถัดไปตาม zone
+     * GET /api/admin/booth/next/:zone
+     */
+    @Get('next/:zone')
+    getNextAvailableBooth(@Param('zone') zone: BoothZone) {
+        return this.boothService.getNextAvailableBooth(zone);
+    }
+
+    // ----- Assignment Management -----
+
+    /**
+     * ดึง assignments ทั้งหมด
+     * GET /api/admin/booth/assignments?zone=FOOD&status=PENDING
+     */
+    @Get('assignments')
+    findAllAssignments(
+        @Query('zone') zone?: BoothZone,
+        @Query('status') status?: BoothAssignmentStatus,
+    ) {
+        return this.boothService.findAllAssignments(zone, status);
+    }
+
+    /**
+     * ดึง assignment ตาม ID
+     * GET /api/admin/booth/assignments/:id
+     */
+    @Get('assignments/:id')
+    findAssignmentById(@Param('id', ParseIntPipe) id: number) {
+        return this.boothService.findAssignmentById(id);
+    }
+
+    /**
+     * ดึง pending assignment ล่าสุด
+     * GET /api/admin/booth/assignments/pending/latest?zone=FOOD
+     */
+    @Get('assignments/pending/latest')
+    getLatestPendingAssignment(@Query('zone') zone?: BoothZone) {
+        return this.boothService.getLatestPendingAssignment(zone);
+    }
+
+    /**
+     * สร้าง assignment ใหม่ (เมื่อสุ่มได้ร้าน)
+     * POST /api/admin/booth/assignments
+     * Body: { storeId: 123, luckyDrawEntryId?: 456 }
+     */
+    @Post('assignments')
+    createAssignment(@Body() dto: CreateBoothAssignmentDto) {
+        return this.boothService.createAssignment(dto);
+    }
+
+    /**
+     * ยืนยัน assignment ด้วย barcode
+     * POST /api/admin/booth/assignments/verify
+     * Body: { barcode: "20065105035316", assignmentId: 1 }
+     */
+    @Post('assignments/verify')
+    verifyAssignment(@Body() dto: VerifyBoothAssignmentDto) {
+        return this.boothService.verifyAssignment(dto);
+    }
+
+    /**
+     * ยืนยัน assignment ด้วย barcode โดยระบุ storeId
+     * POST /api/admin/booth/assignments/verify-by-store
+     * Body: { barcode: "20065105035316", storeId: 123 }
+     */
+    @Post('assignments/verify-by-store')
+    verifyByStoreId(@Body() dto: VerifyByStoreIdDto) {
+        return this.boothService.verifyByStoreId(dto);
+    }
+
+    /**
+     * สละสิทธิ์ assignment
+     * POST /api/admin/booth/assignments/forfeit
+     * Body: { assignmentId: 1, reason?: "ไม่มายืนยัน" }
+     */
+    @Post('assignments/forfeit')
+    forfeitAssignment(@Body() dto: ForfeitBoothAssignmentDto) {
+        return this.boothService.forfeitAssignment(dto);
+    }
+
+    /**
+     * สุ่มใหม่สำหรับร้านที่ยังไม่มี booth
+     * POST /api/admin/booth/assignments/re-draw/:storeId
+     */
+    @Post('assignments/re-draw/:storeId')
+    reDrawForStore(@Param('storeId', ParseIntPipe) storeId: number) {
+        return this.boothService.reDrawForStore(storeId);
+    }
+}

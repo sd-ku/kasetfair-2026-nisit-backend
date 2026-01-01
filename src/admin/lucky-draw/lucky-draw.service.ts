@@ -91,26 +91,39 @@ export class LuckyDrawService {
     /**
      * ทำเครื่องหมายว่าร้านนี้ถูกสุ่มไปแล้ว
      * เรียกเมื่อมีผู้ชนะ
+     * @returns storeId และ luckyDrawEntryId สำหรับสร้าง booth assignment
      */
-    async markAsDrawn(winnerText: string) {
+    async markAsDrawn(winnerText: string): Promise<{ storeId: number | null; luckyDrawEntryId: number | null }> {
         // Extract store ID from winner text (format: "123. Store Name")
         const match = winnerText.match(/^(\d+)\./);
         if (!match) {
-            return; // ถ้า format ไม่ตรง ข้าม
+            return { storeId: null, luckyDrawEntryId: null }; // ถ้า format ไม่ตรง ข้าม
         }
 
         const storeId = parseInt(match[1]);
 
-        await this.prisma.luckyDrawEntry.updateMany({
+        // หา entry ที่ตรงกัน
+        const entry = await this.prisma.luckyDrawEntry.findFirst({
             where: {
                 storeId: storeId,
                 isDrawn: false,
             },
+        });
+
+        if (!entry) {
+            return { storeId, luckyDrawEntryId: null };
+        }
+
+        // อัพเดท entry
+        await this.prisma.luckyDrawEntry.update({
+            where: { id: entry.id },
             data: {
                 isDrawn: true,
                 drawnAt: new Date(),
             },
         });
+
+        return { storeId, luckyDrawEntryId: entry.id };
     }
 
     /**

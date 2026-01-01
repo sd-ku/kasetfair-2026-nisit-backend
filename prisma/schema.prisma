@@ -192,6 +192,7 @@ model Store {
   memberAttemptEmails StoreMemberAttemptEmail[] @relation("Store_AttemptEmails")
   questionAnswers     StoreQuestionAnswer[]
   reviewDrafts        StoreReviewDraft[]
+  boothAssignments    BoothAssignment[]
 
   @@index([storeName, state])
   @@index([type])
@@ -387,7 +388,73 @@ model LuckyDrawEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relation to BoothAssignment
+  boothAssignment BoothAssignment?
+
   @@index([isDrawn])
   @@index([storeId])
   @@map("lucky_draw_entry")
+}
+
+// --------------------- BOOTH ASSIGNMENT ---------------------
+
+enum BoothZone {
+  FOOD
+  NON_FOOD
+}
+
+enum BoothAssignmentStatus {
+  PENDING     // รอยืนยันตัวตน
+  CONFIRMED   // ยืนยันแล้ว
+  FORFEITED   // สละสิทธิ์
+}
+
+model Booth {
+  id            Int        @id @default(autoincrement())
+  boothNumber   String     @unique   // เช่น "M1", "M55"
+  zone          BoothZone             // FOOD หรือ NON_FOOD
+  assignOrder   Int                   // ลำดับการ assign (1, 2, 3...)
+  
+  isAssigned    Boolean    @default(false)
+  
+  // Relation
+  assignment    BoothAssignment?
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([zone, isAssigned, assignOrder])
+  @@map("booth")
+}
+
+model BoothAssignment {
+  id            Int                     @id @default(autoincrement())
+  
+  boothId       Int                     @unique
+  booth         Booth                   @relation(fields: [boothId], references: [id])
+  
+  storeId       Int
+  store         Store                   @relation(fields: [storeId], references: [id])
+  
+  luckyDrawEntryId Int?                 @unique
+  luckyDrawEntry   LuckyDrawEntry?      @relation(fields: [luckyDrawEntryId], references: [id])
+  
+  drawOrder     Int                     // ลำดับที่ถูกสุ่มได้ (1, 2, 3...)
+  status        BoothAssignmentStatus   @default(PENDING)
+  
+  // Verification
+  verifiedByNisitId  String?            // nisitId ที่สแกนยืนยัน
+  verifiedAt         DateTime?
+  
+  // Forfeit info
+  forfeitedAt        DateTime?
+  forfeitReason      String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status])
+  @@index([drawOrder])
+  @@index([storeId])
+  @@map("booth_assignment")
 }

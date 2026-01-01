@@ -8,9 +8,10 @@ import { RegistrationModule } from './registration/registration.module';
 import { AdminNisitModule } from './nisit/nisit.module';
 
 import { LuckyDrawModule } from './lucky-draw/lucky-draw.module';
+import { BoothModule } from './booth/booth.module';
 
 @Module({
-    imports: [AdminStoreModule, AdminMediaModule, RegistrationModule, AdminNisitModule, LuckyDrawModule],
+    imports: [AdminStoreModule, AdminMediaModule, RegistrationModule, AdminNisitModule, LuckyDrawModule, BoothModule],
     controllers: [NisitTrainingParticipantController],
     providers: [NisitTrainingParticipantService],
 })
