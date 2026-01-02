@@ -8,7 +8,7 @@ import { MergeReviewStatusResponseDto, MergeReviewStatusResultDto } from './dto/
 export class StoreService {
     constructor(private readonly prisma: PrismaService) { }
 
-    async findAll(status?: StoreState, type?: StoreType, search?: string, sort: 'id' | 'name' = 'id', page: number = 1, limit: number = 10) {
+    async findAll(status?: StoreState, type?: StoreType, reviewStatus?: ReviewStatus, search?: string, sort: 'id' | 'name' = 'id', page: number = 1, limit: number = 10) {
         const where: any = {};
 
         if (status) {
@@ -17,6 +17,14 @@ export class StoreService {
 
         if (type) {
             where.type = type;
+        }
+
+        if (reviewStatus) {
+            where.reviewDrafts = {
+                some: {
+                    status: reviewStatus
+                }
+            };
         }
 
         // Add search functionality for storeName, id, and boothNumber
@@ -186,10 +194,32 @@ export class StoreService {
             },
         };
     }
-    async updateStatus(id: number, status: StoreState) {
-        return this.prisma.store.update({
-            where: { id },
-            data: { state: status },
+    async updateStatus(id: number, status: StoreState, adminId: string) {
+        let reviewStatus: ReviewStatus;
+        let comment = '';
+
+        switch (status) {
+            case StoreState.Validated:
+                reviewStatus = ReviewStatus.Pending;
+                comment = 'อนุมัติโดย Admin (Manual Judge)';
+                break;
+            case StoreState.Rejected:
+                reviewStatus = ReviewStatus.Rejected;
+                comment = 'ปฏิเสธโดย Admin (Manual Judge)';
+                break;
+            default:
+                reviewStatus = ReviewStatus.NeedFix;
+                comment = 'ส่งกลับแก้ไขโดย Admin (Manual Judge)';
+                break;
+        }
+
+        return this.prisma.storeReviewDraft.create({
+            data: {
+                storeId: id,
+                adminId,
+                status: reviewStatus,
+                comment,
+            },
         });
     }
 

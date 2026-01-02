@@ -2,7 +2,7 @@ import { Controller, Get, Query, UseGuards, Patch, Param, Body, ParseIntPipe, Po
 import { StoreService } from './store.service';
 import { JwtAuthGuard } from '../../auth/jwt.guard';
 import { AdminGuard } from '../admin.guard';
-import { StoreState, StoreType } from '@prisma/client';
+import { StoreState, StoreType, ReviewStatus } from '@prisma/client';
 import { UpdateStoreStatusDto } from './dto/update-store-status.dto';
 
 @Controller('api/admin/store')
@@ -14,12 +14,13 @@ export class StoreController {
     async findAll(
         @Query('status') status?: StoreState,
         @Query('type') type?: StoreType,
+        @Query('reviewStatus') reviewStatus?: any, // We will cast or import ReviewStatus if possible, or string. Better to use strict type if possible.
         @Query('search') search?: string,
         @Query('sort') sort: 'id' | 'name' = 'id',
         @Query('page') page: string = '1',
         @Query('limit') limit: string = '10',
     ) {
-        return this.storeService.findAll(status, type, search, sort, +page, +limit);
+        return this.storeService.findAll(status, type, reviewStatus, search, sort, +page, +limit);
     }
 
     @Get('stats')
@@ -31,8 +32,10 @@ export class StoreController {
     async updateStatus(
         @Param('id', ParseIntPipe) id: number,
         @Body() body: UpdateStoreStatusDto,
+        @Request() req: any,
     ) {
-        return this.storeService.updateStatus(id, body.targetState);
+        const adminId = req.user.userId;
+        return this.storeService.updateStatus(id, body.targetState, adminId);
     }
 
     @Post('validate-all')
