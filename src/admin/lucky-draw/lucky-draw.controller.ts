@@ -43,6 +43,7 @@ export class LuckyDrawController {
         return this.luckyDrawService.findAll();
     }
 
+    /* สร้าง entries สำหรับวงล้อ */
     @Post('generate-wheel')
     generateWheel(@Body() generateWheelDto: GenerateWheelDto) {
         return this.luckyDrawService.generateWheel(generateWheelDto);
@@ -56,6 +57,11 @@ export class LuckyDrawController {
     @Post('reset')
     resetWheel() {
         return this.luckyDrawService.resetWheel();
+    }
+
+    @Get('entries')
+    getAllEntries() {
+        return this.luckyDrawService.getAllEntries();
     }
 }
 

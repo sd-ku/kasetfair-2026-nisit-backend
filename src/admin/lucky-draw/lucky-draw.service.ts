@@ -133,4 +133,17 @@ export class LuckyDrawService {
         await this.prisma.luckyDrawEntry.deleteMany({});
         return { message: 'Wheel reset successfully' };
     }
+
+    /**
+     * ดึงข้อมูล entries ทั้งหมด (ทั้งที่ถูกสุ่มและยังไม่ถูกสุ่ม)
+     * ใช้สำหรับแสดงรายการผู้มีสิทธิ์จับฉลาก
+     */
+    async getAllEntries() {
+        return this.prisma.luckyDrawEntry.findMany({
+            orderBy: [
+                { isDrawn: 'asc' },  // ยังไม่ถูกสุ่มก่อน
+                { storeId: 'asc' },
+            ],
+        });
+    }
 }

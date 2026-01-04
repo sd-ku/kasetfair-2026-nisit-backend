@@ -55,6 +55,28 @@ export class CreateBoothAssignmentDto {
     luckyDrawEntryId?: number;
 }
 
+// ----- Manual Assignment DTO -----
+
+export class ManualAssignBoothDto {
+    @IsInt()
+    storeId: number;
+
+    @IsString()
+    @IsOptional()
+    note?: string; // หมายเหตุ เช่น "Assigned manually by admin"
+}
+
+export class BatchAssignBoothDto {
+    @IsArray()
+    @IsInt({ each: true })
+    storeIds: number[]; // รายการ storeId ที่ต้องการ assign
+
+    @IsString()
+    @IsOptional()
+    note?: string;
+}
+
+
 // ----- Verify Assignment DTO -----
 
 export class VerifyBoothAssignmentDto {

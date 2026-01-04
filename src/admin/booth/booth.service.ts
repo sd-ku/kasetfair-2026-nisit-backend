@@ -498,6 +498,83 @@ export class BoothService {
         return this.createAssignment({ storeId });
     }
 
+    /**
+     * Manual assign booth สำหรับร้านที่ระบุ
+     * ใช้สำหรับกรณี admin ต้องการ assign booth ให้ร้านโดยตรง
+     */
+    async manualAssignBooth(storeId: number, note?: string) {
+        // ตรวจสอบว่าร้านนี้มี booth แล้วหรือยัง
+        const store = await this.prisma.store.findUnique({
+            where: { id: storeId },
+            select: {
+                id: true,
+                storeName: true,
+                goodType: true,
+                boothNumber: true,
+            },
+        });
+
+        if (!store) {
+            throw new NotFoundException('ไม่พบร้าน');
+        }
+
+        if (store.boothNumber) {
+            throw new BadRequestException(`ร้าน "${store.storeName}" มี booth ${store.boothNumber} แล้ว`);
+        }
+
+        if (!store.goodType) {
+            throw new BadRequestException('ร้านนี้ยังไม่ได้ระบุประเภทสินค้า (Food/NonFood)');
+        }
+
+        // สร้าง assignment (จะ auto assign booth ว่างถัดไป)
+        const assignment = await this.createAssignment({ storeId });
+
+        return {
+            ...assignment,
+            note: note || 'Manual assignment by admin',
+        };
+    }
+
+    /**
+     * Batch assign booths สำหรับหลายร้านพร้อมกัน
+     * ใช้สำหรับกรณี admin ต้องการ assign booth ให้หลายร้านพร้อมกัน
+     */
+    async batchAssignBooths(storeIds: number[], note?: string) {
+        const results = {
+            success: [] as any[],
+            failed: [] as { storeId: number; storeName: string; reason: string }[],
+        };
+
+        for (const storeId of storeIds) {
+            try {
+                const assignment = await this.manualAssignBooth(storeId, note);
+                results.success.push(assignment);
+            } catch (error: any) {
+                // ดึงชื่อร้านสำหรับ error message
+                const store = await this.prisma.store.findUnique({
+                    where: { id: storeId },
+                    select: { storeName: true },
+                });
+
+                results.failed.push({
+                    storeId,
+                    storeName: store?.storeName || 'Unknown',
+                    reason: error.message || 'Unknown error',
+                });
+            }
+        }
+
+        return {
+            total: storeIds.length,
+            successCount: results.success.length,
+            failedCount: results.failed.length,
+            success: results.success,
+            failed: results.failed,
+            note: note || 'Batch assignment by admin',
+        };
+    }
+
+
     // ----- Statistics -----
 
     /**

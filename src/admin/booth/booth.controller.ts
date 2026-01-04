@@ -16,6 +16,8 @@ import {
     VerifyBoothAssignmentDto,
     VerifyByStoreIdDto,
     ForfeitBoothAssignmentDto,
+    ManualAssignBoothDto,
+    BatchAssignBoothDto,
 } from './dto/booth.dto';
 import { BoothZone, BoothAssignmentStatus } from '@prisma/client';
 
@@ -175,5 +177,25 @@ export class BoothController {
     @Post('assignments/re-draw/:storeId')
     reDrawForStore(@Param('storeId', ParseIntPipe) storeId: number) {
         return this.boothService.reDrawForStore(storeId);
+    }
+
+    /**
+     * Manual assign booth สำหรับร้านที่ระบุ (ไม่ผ่านการจับฉลาก)
+     * POST /api/admin/booth/assignments/manual
+     * Body: { storeId: 123, note?: "Assigned manually" }
+     */
+    @Post('assignments/manual')
+    manualAssignBooth(@Body() dto: ManualAssignBoothDto) {
+        return this.boothService.manualAssignBooth(dto.storeId, dto.note);
+    }
+
+    /**
+     * Batch assign booths สำหรับหลายร้านพร้อมกัน
+     * POST /api/admin/booth/assignments/batch
+     * Body: { storeIds: [123, 456, 789], note?: "Batch assignment" }
+     */
+    @Post('assignments/batch')
+    batchAssignBooths(@Body() dto: BatchAssignBoothDto) {
+        return this.boothService.batchAssignBooths(dto.storeIds, dto.note);
     }
 }
