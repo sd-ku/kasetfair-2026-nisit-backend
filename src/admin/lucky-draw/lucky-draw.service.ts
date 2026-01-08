@@ -127,6 +127,20 @@ export class LuckyDrawService {
     }
 
     /**
+     * ยกเลิกการทำเครื่องหมายว่าร้านนี้ถูกสุ่ม (สำหรับ rollback)
+     * ใช้เมื่อ assign booth ไม่สำเร็จ
+     */
+    async unmarkAsDrawn(luckyDrawEntryId: number): Promise<void> {
+        await this.prisma.luckyDrawEntry.update({
+            where: { id: luckyDrawEntryId },
+            data: {
+                isDrawn: false,
+                drawnAt: null,
+            },
+        });
+    }
+
+    /**
      * Reset ทุกอย่าง เริ่มต้นใหม่
      */
     async resetWheel() {
@@ -145,5 +159,36 @@ export class LuckyDrawService {
                 { storeId: 'asc' },
             ],
         });
+    }
+
+    /**
+     * ตรวจสอบว่ามี booth ว่างหรือไม่ในแต่ละ zone
+     * ใช้สำหรับตรวจสอบก่อนเริ่มหมุนวงล้อ
+     */
+    async checkBoothAvailability() {
+        const foodBooths = await this.prisma.booth.count({
+            where: {
+                zone: 'FOOD',
+                isAssigned: false,
+            },
+        });
+
+        const nonFoodBooths = await this.prisma.booth.count({
+            where: {
+                zone: 'NON_FOOD',
+                isAssigned: false,
+            },
+        });
+
+        const hasAvailableBooths = foodBooths > 0 || nonFoodBooths > 0;
+
+        return {
+            hasAvailableBooths,
+            foodBooths,
+            nonFoodBooths,
+            message: hasAvailableBooths
+                ? `มี booth ว่าง: FOOD ${foodBooths} ช่อง, NON_FOOD ${nonFoodBooths} ช่อง`
+                : 'ไม่มี booth ว่างเหลือแล้ว ไม่สามารถจับฉลากได้'
+        };
     }
 }

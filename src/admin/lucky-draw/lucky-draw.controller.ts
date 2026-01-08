@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, HttpException, HttpStatus } from '@nestjs/common';
 import { LuckyDrawService } from './lucky-draw.service';
 import { CreateLuckyDrawDto } from './dto/create-lucky-draw.dto';
 import { GenerateWheelDto } from './dto/generate-wheel.dto';
@@ -13,28 +13,42 @@ export class LuckyDrawController {
 
     @Post('winner')
     async create(@Body() createLuckyDrawDto: CreateLuckyDrawDto) {
-        const winner = await this.luckyDrawService.create(createLuckyDrawDto);
-
-        // ทำเครื่องหมายว่าร้านนี้ถูกสุ่มไปแล้ว
+        // ทำเครื่องหมายว่าร้านนี้ถูกสุ่มไปแล้ว และดึง storeId
         const { storeId, luckyDrawEntryId } = await this.luckyDrawService.markAsDrawn(createLuckyDrawDto.winner);
 
-        // สร้าง booth assignment ถ้าได้ storeId
+        // ถ้าไม่ได้ storeId แสดงว่า format ไม่ถูกต้อง
+        if (!storeId) {
+            throw new HttpException(
+                'รูปแบบชื่อผู้ชนะไม่ถูกต้อง (ต้องเป็น "ID. ชื่อร้าน")',
+                HttpStatus.BAD_REQUEST
+            );
+        }
+
+        // บันทึก winner ก่อน (เก็บไว้ก่อนแม้ assign ไม่สำเร็จ)
+        const winner = await this.luckyDrawService.create(createLuckyDrawDto);
+
+        // พยายาม assign booth
         let boothAssignment: any = null;
-        if (storeId) {
-            try {
-                boothAssignment = await this.boothService.createAssignment({
-                    storeId,
-                    luckyDrawEntryId: luckyDrawEntryId ?? undefined,
-                });
-            } catch (error) {
-                // Log error แต่ไม่ throw - เพื่อให้บันทึกผู้ชนะได้แม้ assign booth ไม่สำเร็จ
-                console.error('Failed to create booth assignment:', error);
-            }
+        let assignmentError: string | null = null;
+
+        try {
+            boothAssignment = await this.boothService.createAssignment({
+                storeId,
+                luckyDrawEntryId: luckyDrawEntryId ?? undefined,
+            });
+        } catch (error: any) {
+            // เก็บ error message แต่ไม่ throw
+            assignmentError = error.message || 'ไม่สามารถ assign booth ได้';
+            console.warn(`Winner saved but booth assignment failed: ${assignmentError}`);
         }
 
         return {
             ...winner,
             boothAssignment,
+            assignmentError, // ส่ง error กลับไปให้ frontend รู้
+            message: assignmentError
+                ? `บันทึกผู้ชนะเรียบร้อย แต่ยังไม่สามารถ assign booth ได้: ${assignmentError}`
+                : 'บันทึกผู้ชนะและ assign booth เรียบร้อย'
         };
     }
 
@@ -62,6 +76,15 @@ export class LuckyDrawController {
     @Get('entries')
     getAllEntries() {
         return this.luckyDrawService.getAllEntries();
+    }
+
+    /**
+     * ตรวจสอบว่ามี booth ว่างหรือไม่
+     * GET /api/admin/lucky-draw/check-booth-availability
+     */
+    @Get('check-booth-availability')
+    async checkBoothAvailability() {
+        return this.luckyDrawService.checkBoothAvailability();
     }
 }
 
