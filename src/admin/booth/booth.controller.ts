@@ -198,4 +198,14 @@ export class BoothController {
     batchAssignBooths(@Body() dto: BatchAssignBoothDto) {
         return this.boothService.batchAssignBooths(dto.storeIds, dto.note);
     }
+
+    /**
+     * ค้นหาร้านจาก nisit barcode
+     * POST /api/admin/booth/lookup-store
+     * Body: { barcode: "20065105035316" }
+     */
+    @Post('lookup-store')
+    findStoreByNisitBarcode(@Body('barcode') barcode: string) {
+        return this.boothService.findStoreByNisitBarcode(barcode);
+    }
 }

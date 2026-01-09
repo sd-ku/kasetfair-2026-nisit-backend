@@ -18,11 +18,32 @@ export class LuckyDrawService {
     }
 
     async findAll() {
-        return this.prisma.luckyDraw.findMany({
+        // Query จาก LuckyDrawEntry ที่ isDrawn = true โดยตรง
+        // ดีกว่าการ query จาก LuckyDraw แล้วค่อย loop หา entry (N+1 problem)
+        const drawnEntries = await this.prisma.luckyDrawEntry.findMany({
+            where: {
+                isDrawn: true,
+            },
+            include: {
+                boothAssignment: {
+                    include: {
+                        booth: true,
+                    },
+                },
+            },
             orderBy: {
-                createdAt: 'desc',
+                drawnAt: 'desc',
             },
         });
+
+        // Map เป็น format ที่ frontend คาดหวัง
+        return drawnEntries.map(entry => ({
+            id: entry.id,
+            winner: `${entry.storeId}. ${entry.storeName}`,
+            createdAt: entry.drawnAt || entry.createdAt,
+            boothNumber: entry.boothAssignment?.booth?.boothNumber || null,
+            status: entry.boothAssignment?.status || null,
+        }));
     }
 
     /**
@@ -94,13 +115,17 @@ export class LuckyDrawService {
      * @returns storeId และ luckyDrawEntryId สำหรับสร้าง booth assignment
      */
     async markAsDrawn(winnerText: string): Promise<{ storeId: number | null; luckyDrawEntryId: number | null }> {
+        console.log(`[markAsDrawn] Processing winner: "${winnerText}"`);
+
         // Extract store ID from winner text (format: "123. Store Name")
         const match = winnerText.match(/^(\d+)\./);
         if (!match) {
+            console.warn(`[markAsDrawn] Invalid format: "${winnerText}"`);
             return { storeId: null, luckyDrawEntryId: null }; // ถ้า format ไม่ตรง ข้าม
         }
 
         const storeId = parseInt(match[1]);
+        console.log(`[markAsDrawn] Extracted storeId: ${storeId}`);
 
         // หา entry ที่ตรงกัน
         const entry = await this.prisma.luckyDrawEntry.findFirst({
@@ -111,8 +136,22 @@ export class LuckyDrawService {
         });
 
         if (!entry) {
+            // ตรวจสอบว่ามี entry อยู่หรือไม่ (แต่อาจถูก drawn ไปแล้ว)
+            const anyEntry = await this.prisma.luckyDrawEntry.findFirst({
+                where: { storeId: storeId },
+            });
+
+            if (!anyEntry) {
+                console.error(`[markAsDrawn] ❌ No LuckyDrawEntry found for storeId: ${storeId}`);
+                console.error(`[markAsDrawn] Please run generateWheel() first to create entries`);
+            } else if (anyEntry.isDrawn) {
+                console.warn(`[markAsDrawn] ⚠️ Entry for storeId ${storeId} is already drawn at ${anyEntry.drawnAt}`);
+            }
+
             return { storeId, luckyDrawEntryId: null };
         }
+
+        console.log(`[markAsDrawn] Found entry ID: ${entry.id}, updating isDrawn to true`);
 
         // อัพเดท entry
         await this.prisma.luckyDrawEntry.update({
@@ -123,6 +162,7 @@ export class LuckyDrawService {
             },
         });
 
+        console.log(`[markAsDrawn] ✅ Successfully marked entry ${entry.id} as drawn`);
         return { storeId, luckyDrawEntryId: entry.id };
     }
 

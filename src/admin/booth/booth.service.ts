@@ -35,12 +35,23 @@ export class BoothService {
     /**
      * ดึง nisitId จาก barcode (format: XXX<nisitId>X)
      * ตัด 3 ตัวหน้า และ 1 ตัวท้าย
+     * ถ้าความยาวไม่ครบ 14 ตัว ถือว่าเป็น nisitId อยู่แล้ว (ไม่ต้อง extract)
      */
     private extractNisitId(barcode: string): string {
-        if (barcode.length < 5) {
-            throw new BadRequestException('Barcode ไม่ถูกต้อง: ความยาวต้องอย่างน้อย 5 ตัวอักษร');
+        // ถ้าความยาวเป็น 14 ตัว = barcode เต็ม (XXX<10 digits>X)
+        if (barcode.length === 14) {
+            return barcode.slice(3, -1);
         }
-        return barcode.slice(3, -1);
+
+        // ถ้าความยาวเป็น 10 ตัว = nisitId อยู่แล้ว
+        if (barcode.length === 10) {
+            return barcode;
+        }
+
+        // ถ้าไม่ใช่ทั้ง 14 และ 10 = format ไม่ถูกต้อง
+        throw new BadRequestException(
+            `Barcode/NisitId ไม่ถูกต้อง: ต้องมีความยาว 14 ตัว (barcode) หรือ 10 ตัว (nisitId) แต่ได้รับ ${barcode.length} ตัว`
+        );
     }
 
     // ----- Booth Management -----
@@ -707,5 +718,128 @@ export class BoothService {
             },
             orderBy: { drawOrder: 'desc' },
         });
+    }
+
+    /**
+     * ค้นหาร้านจาก nisitId (barcode)
+     * ใช้สำหรับ admin ตรวจสอบว่านิสิตคนนี้อยู่ร้านไหน
+     */
+    async findStoreByNisitBarcode(barcode: string) {
+        const nisitId = this.extractNisitId(barcode);
+
+        // ค้นหาว่านิสิตคนนี้เป็น admin หรือ member ของร้านไหน
+        const nisit = await this.prisma.nisit.findUnique({
+            where: { nisitId },
+            select: {
+                nisitId: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+                storeAdminOf: {
+                    select: {
+                        id: true,
+                        storeName: true,
+                        goodType: true,
+                        boothNumber: true,
+                        state: true,
+                        boothAssignments: {
+                            include: {
+                                booth: true,
+                            },
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                        },
+                    },
+                },
+                store: {
+                    select: {
+                        id: true,
+                        storeName: true,
+                        goodType: true,
+                        boothNumber: true,
+                        state: true,
+                        storeAdminNisitId: true,
+                        boothAssignments: {
+                            include: {
+                                booth: true,
+                            },
+                            orderBy: { createdAt: 'desc' },
+                            take: 1,
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!nisit) {
+            throw new NotFoundException(`ไม่พบนิสิต nisitId: ${nisitId}`);
+        }
+
+        // ตรวจสอบว่าเป็น admin หรือ member
+        const store = nisit.storeAdminOf || nisit.store;
+        const role = nisit.storeAdminOf ? 'admin' : 'member';
+
+        if (!store) {
+            throw new NotFoundException(`nisitId ${nisitId} (${nisit.firstName} ${nisit.lastName}) ไม่ได้อยู่ในร้านใดๆ`);
+        }
+
+        // ดึง assignment ล่าสุด
+        const latestAssignment = store.boothAssignments[0] || null;
+
+        // ดึงข้อมูล admin และ members ของร้าน
+        const storeWithMembers = await this.prisma.store.findUnique({
+            where: { id: store.id },
+            select: {
+                storeAdmin: {
+                    select: {
+                        nisitId: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                    },
+                },
+                members: {
+                    select: {
+                        nisitId: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                    },
+                },
+            },
+        });
+
+        return {
+            scannedBarcode: barcode, // เก็บ barcode ดิบที่สแกนมา
+            nisit: {
+                nisitId: nisit.nisitId,
+                firstName: nisit.firstName,
+                lastName: nisit.lastName,
+                email: nisit.email,
+                phone: nisit.phone,
+                role,
+            },
+            store: {
+                id: store.id,
+                storeName: store.storeName,
+                goodType: store.goodType,
+                boothNumber: store.boothNumber,
+                state: store.state,
+                storeAdmin: storeWithMembers?.storeAdmin || null,
+                members: storeWithMembers?.members || [],
+            },
+            assignment: latestAssignment ? {
+                id: latestAssignment.id,
+                booth: latestAssignment.booth,
+                status: latestAssignment.status,
+                drawOrder: latestAssignment.drawOrder,
+                verifiedByNisitId: latestAssignment.verifiedByNisitId,
+                verifiedAt: latestAssignment.verifiedAt,
+                createdAt: latestAssignment.createdAt,
+            } : null,
+        };
     }
 }
