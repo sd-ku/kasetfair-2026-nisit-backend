@@ -6,6 +6,7 @@ import {
     Param,
     ParseIntPipe,
     Post,
+    Put,
     Query,
 } from '@nestjs/common';
 import { BoothService } from './booth.service';
@@ -48,6 +49,15 @@ export class BoothController {
     }
 
     /**
+     * ดึงค่า priority (assignOrder) สูงสุดที่มีอยู่
+     * GET /api/admin/booth/last-priority
+     */
+    @Get('last-priority')
+    getLastPriority() {
+        return this.boothService.getLastPriority();
+    }
+
+    /**
      * ดึง booth ทั้งหมด
      * GET /api/admin/booth?zone=FOOD&isAssigned=true
      */
@@ -76,6 +86,16 @@ export class BoothController {
     @Delete('all/reset')
     deleteAllBooths() {
         return this.boothService.deleteAllBooths();
+    }
+
+    /**
+     * อัปเดตลำดับ booth (assignOrder)
+     * PUT /api/admin/booth/update-order
+     * Body: { booths: [{ id: 1, assignOrder: 1 }, { id: 2, assignOrder: 2 }] }
+     */
+    @Put('update-order')
+    updateBoothOrder(@Body('booths') booths: Array<{ id: number; assignOrder: number }>) {
+        return this.boothService.updateBoothOrder(booths);
     }
 
     // ----- Stats -----

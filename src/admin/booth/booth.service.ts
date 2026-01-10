@@ -16,6 +16,24 @@ import {
 export class BoothService {
     constructor(private readonly prisma: PrismaService) { }
 
+    // ----- Zone Expansion Configuration -----
+
+    /**
+     * กำหนดทิศทางการขยายของแต่ละ zone
+     * FOOD: เริ่มจาก assignOrder ต่ำสุด → ขยายไปทางสูง (ASC)
+     * NON_FOOD: เริ่มจาก assignOrder สูงสุด → ขยายไปทางต่ำ (DESC)
+     */
+    private readonly ZONE_EXPANSION_CONFIG = {
+        [BoothZone.FOOD]: {
+            direction: 'asc' as const,      // ขยายจากต่ำไปสูง
+            startFrom: 'min' as const,      // เริ่มจาก assignOrder ต่ำสุด
+        },
+        [BoothZone.NON_FOOD]: {
+            direction: 'desc' as const,     // ขยายจากสูงไปต่ำ
+            startFrom: 'max' as const,      // เริ่มจาก assignOrder สูงสุด
+        },
+    };
+
     // ----- Utility Functions -----
 
     /**
@@ -57,42 +75,35 @@ export class BoothService {
     // ----- Booth Management -----
 
     /**
-     * Import booth แบบ range เช่น M1-M20
+     * Import booth แบบ range
+     * เช่น M1-M20 (FOOD), M21-M100 (NON_FOOD)
      */
     async importBoothRange(dto: ImportBoothRangeDto) {
-        const boothsToCreate: { boothNumber: string; zone: BoothZone; assignOrder: number }[] = [];
-
-        // ดึงลำดับสุดท้ายของแต่ละ zone
-        const maxOrders = await this.prisma.booth.groupBy({
-            by: ['zone'],
-            _max: { assignOrder: true },
-        });
-
-        const currentMaxOrder: Record<BoothZone, number> = {
-            [BoothZone.FOOD]: 0,
-            [BoothZone.NON_FOOD]: 0,
-        };
-
-        for (const order of maxOrders) {
-            currentMaxOrder[order.zone] = order._max.assignOrder || 0;
-        }
+        const boothsToCreate: Array<{ boothNumber: string; zone: BoothZone; assignOrder: number }> = [];
 
         for (const range of dto.ranges) {
-            const { prefix, start, end, zone } = range;
+            const { prefix, start, end, zone, priorityStart } = range;
 
             if (start > end) {
                 throw new BadRequestException(`Invalid range: ${start} > ${end}`);
             }
 
+            // ถ้าไม่มี zone ให้ใช้ UNDEFINED เป็นค่าเริ่มต้น (จะถูกเปลี่ยนตอน assign ร้านจริง)
+            const boothZone = zone || BoothZone.UNDEFINED;
+
+            // ใช้ priorityStart ถ้ามี ไม่งั้นใช้ค่าเริ่มต้น
+            let currentPriority = priorityStart || 1;
+
             for (let i = start; i <= end; i++) {
                 const boothNumber = `${prefix}${i}`;
-                currentMaxOrder[zone]++;
 
                 boothsToCreate.push({
                     boothNumber,
-                    zone,
-                    assignOrder: currentMaxOrder[zone],
+                    zone: boothZone,
+                    assignOrder: currentPriority,
                 });
+
+                currentPriority++;
             }
         }
 
@@ -106,6 +117,20 @@ export class BoothService {
             message: `สร้าง booth สำเร็จ ${result.count} รายการ`,
             created: result.count,
             attempted: boothsToCreate.length,
+        };
+    }
+
+    /**
+     * ดึงค่า priority (assignOrder) สูงสุด
+     */
+    async getLastPriority() {
+        const result = await this.prisma.booth.aggregate({
+            _max: {
+                assignOrder: true,
+            },
+        });
+        return {
+            lastPriority: result._max.assignOrder || 0,
         };
     }
 
@@ -124,6 +149,7 @@ export class BoothService {
         const currentMaxOrder: Record<BoothZone, number> = {
             [BoothZone.FOOD]: 0,
             [BoothZone.NON_FOOD]: 0,
+            [BoothZone.UNDEFINED]: 0,
         };
 
         for (const order of maxOrders) {
@@ -217,18 +243,44 @@ export class BoothService {
         };
     }
 
+    /**
+     * อัปเดตลำดับ booth (assignOrder) หลายตัวพร้อมกัน
+     */
+    async updateBoothOrder(booths: Array<{ id: number; assignOrder: number }>) {
+        // ใช้ transaction เพื่อให้แน่ใจว่าทุก booth ถูกอัปเดตพร้อมกัน
+        await this.prisma.$transaction(
+            booths.map(booth =>
+                this.prisma.booth.update({
+                    where: { id: booth.id },
+                    data: { assignOrder: booth.assignOrder },
+                })
+            )
+        );
+
+        return {
+            message: `อัปเดตลำดับ booth สำเร็จ ${booths.length} รายการ`,
+            updated: booths.length,
+        };
+    }
+
     // ----- Assignment Management -----
 
     /**
      * ดึง booth ว่างถัดไปตาม zone
+     * FOOD zone: ขยายจาก assignOrder ต่ำไปสูง (ASC)
+     * NON_FOOD zone: ขยายจาก assignOrder สูงไปต่ำ (DESC)
      */
     async getNextAvailableBooth(zone: BoothZone): Promise<NextBoothInfoDto> {
+        const config = this.ZONE_EXPANSION_CONFIG[zone];
+
+        // ค้นหา booth ใน zone ที่กำหนด หรือ UNDEFINED
+        // โดยเรียงตาม assignOrder ตามทิศทางของ zone นั้น
         const nextBooth = await this.prisma.booth.findFirst({
             where: {
-                zone,
+                zone: { in: [zone, BoothZone.UNDEFINED] },
                 isAssigned: false,
             },
-            orderBy: { assignOrder: 'asc' },
+            orderBy: { assignOrder: config.direction },
         });
 
         const currentDrawOrder = await this.prisma.boothAssignment.count({
@@ -273,29 +325,31 @@ export class BoothService {
         }
 
         const zone = this.goodsTypeToZone(store.goodType);
+        const config = this.ZONE_EXPANSION_CONFIG[zone];
 
-        // ดึง booth ว่างถัดไป
+        // ดึง booth ว่างถัดไปตามทิศทางการขยายของ zone รวมถึง UNDEFINED zone
         const nextBooth = await this.prisma.booth.findFirst({
             where: {
-                zone,
+                zone: { in: [zone, BoothZone.UNDEFINED] },
                 isAssigned: false,
             },
-            orderBy: { assignOrder: 'asc' },
+            orderBy: { assignOrder: config.direction },
         });
 
         if (!nextBooth) {
-            throw new BadRequestException(`ไม่มี booth ว่างในโซน ${zone}`);
+            throw new BadRequestException(`ไม่มี booth ว่างในโซน ${zone} หรือ UNDEFINED zone`);
         }
 
-        // ดึงลำดับ draw ถัดไป
+        // ดึงลำดับ draw ถัดไป (นับเฉพาะใน zone ที่ assign แต่ตอนนี้อาจจะรวมๆ กัน ถ้าเปลี่ยนจาก undefined มาเป็น zone)
+        // จริงๆ drawOrder อาจจะไม่ซีเรียสมากเรื่องแยก zone แต่อิงตาม assignment ที่เกิดขึ้น actual
         const maxDrawOrder = await this.prisma.boothAssignment.aggregate({
-            where: { booth: { zone } },
+            // นับรวมทั้งหมดดีกว่า เพราะตอนนี้ zone มัน dynamic
             _max: { drawOrder: true },
         });
 
         const drawOrder = (maxDrawOrder._max.drawOrder || 0) + 1;
 
-        // Transaction: สร้าง assignment และ mark booth as assigned
+        // Transaction: สร้าง assignment และ mark booth as assigned และ update zone ถ้าจำเป็น
         const assignment = await this.prisma.$transaction(async (tx) => {
             // สร้าง assignment
             const newAssignment = await tx.boothAssignment.create({
@@ -318,10 +372,13 @@ export class BoothService {
                 },
             });
 
-            // Mark booth as assigned
+            // Mark booth as assigned และ update zone ให้ถูกต้อง
             await tx.booth.update({
                 where: { id: nextBooth.id },
-                data: { isAssigned: true },
+                data: {
+                    isAssigned: true,
+                    zone: zone // อัปเดต zone ให้ตรงกับร้าน (เช่นเปลี่ยนจาก UNDEFINED เป็น FOOD)
+                },
             });
 
             return newAssignment;
@@ -592,7 +649,7 @@ export class BoothService {
      * ดึงสถิติ booth ทั้งหมด
      */
     async getStats(): Promise<BoothStatsDto[]> {
-        const zones = [BoothZone.FOOD, BoothZone.NON_FOOD];
+        const zones = [BoothZone.FOOD, BoothZone.NON_FOOD, BoothZone.UNDEFINED];
         const stats: BoothStatsDto[] = [];
 
         for (const zone of zones) {
@@ -621,6 +678,14 @@ export class BoothService {
                 },
             });
 
+            // นับ booth ที่อยู่ใน UNDEFINED zone และยังไม่ได้ assign
+            const undefined = await this.prisma.booth.count({
+                where: {
+                    zone: BoothZone.UNDEFINED,
+                    isAssigned: false,
+                },
+            });
+
             stats.push({
                 zone,
                 total,
@@ -629,6 +694,7 @@ export class BoothService {
                 confirmed,
                 forfeited,
                 available,
+                undefined,
             });
         }
 

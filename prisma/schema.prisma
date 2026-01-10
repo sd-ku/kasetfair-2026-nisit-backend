@@ -401,6 +401,7 @@ model LuckyDrawEntry {
 enum BoothZone {
   FOOD
   NON_FOOD
+  UNDEFINED
 }
 
 enum BoothAssignmentStatus {

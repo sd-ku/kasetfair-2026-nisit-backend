@@ -18,7 +18,13 @@ export class BoothRangeDto {
     end: number;
 
     @IsEnum(BoothZone)
-    zone: BoothZone;
+    @IsOptional()
+    zone?: BoothZone; // Optional: จะถูกกำหนดอัตโนมัติเมื่อ assign ร้านตาม goodType
+
+    @IsInt()
+    @Min(1)
+    @IsOptional()
+    priorityStart?: number; // ลำดับ priority เริ่มต้น (assignOrder)
 }
 
 export class BoothListDto {
@@ -142,6 +148,7 @@ export class BoothStatsDto {
     confirmed: number;
     forfeited: number;
     available: number;
+    undefined: number; // จำนวน booth ที่อยู่ใน UNDEFINED zone และยังไม่ได้ assign
 }
 
 export class NextBoothInfoDto {
