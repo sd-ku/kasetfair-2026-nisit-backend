@@ -388,10 +388,12 @@ export class BoothService {
         const config = this.ZONE_EXPANSION_CONFIG[zone];
 
         // ดึง booth ว่างถัดไปตามทิศทางการขยายของ zone รวมถึง UNDEFINED zone
+        // เลือกเฉพาะ booth ที่เปิดใช้งาน (isActive: true)
         const nextBooth = await this.prisma.booth.findFirst({
             where: {
                 zone: { in: [zone, BoothZone.UNDEFINED] },
                 isAssigned: false,
+                isActive: true, // เลือกเฉพาะ booth ที่เปิดใช้งาน
             },
             orderBy: { assignOrder: config.direction },
         });

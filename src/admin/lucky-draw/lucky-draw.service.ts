@@ -220,14 +220,22 @@ export class LuckyDrawService {
             },
         });
 
-        const hasAvailableBooths = foodBooths > 0 || nonFoodBooths > 0;
+        const undefinedBooths = await this.prisma.booth.count({
+            where: {
+                zone: 'UNDEFINED',
+                isAssigned: false,
+            },
+        });
+
+        const hasAvailableBooths = foodBooths > 0 || nonFoodBooths > 0 || undefinedBooths > 0;
 
         return {
             hasAvailableBooths,
             foodBooths,
             nonFoodBooths,
+            undefinedBooths,
             message: hasAvailableBooths
-                ? `มี booth ว่าง: FOOD ${foodBooths} ช่อง, NON_FOOD ${nonFoodBooths} ช่อง`
+                ? `มี booth ว่าง: FOOD ${foodBooths} ช่อง, NON_FOOD ${nonFoodBooths} ช่อง, UNDEFINED ${undefinedBooths} ช่อง`
                 : 'ไม่มี booth ว่างเหลือแล้ว ไม่สามารถจับฉลากได้'
         };
     }
