@@ -417,6 +417,7 @@ model Booth {
   assignOrder   Int                   // ลำดับการ assign (1, 2, 3...)
   
   isAssigned    Boolean    @default(false)
+  isActive      Boolean    @default(true)  // false = ปิดการใช้งาน (soft delete)
   
   // Relation
   assignment    BoothAssignment?
@@ -425,6 +426,7 @@ model Booth {
   updatedAt     DateTime   @updatedAt
 
   @@index([zone, isAssigned, assignOrder])
+  @@index([isActive])
   @@map("booth")
 }
 

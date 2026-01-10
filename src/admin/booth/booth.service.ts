@@ -244,6 +244,66 @@ export class BoothService {
     }
 
     /**
+     * ปิดการใช้งาน booth หลายอันพร้อมกัน (Soft Delete / Disable)
+     * จะปิดได้เฉพาะ booth ที่ยังไม่ได้ assign เท่านั้น
+     */
+    async bulkDisableBooths(boothIds: number[]) {
+        // ตรวจสอบว่า booth ที่จะปิดมี assignment หรือไม่
+        const boothsWithAssignments = await this.prisma.booth.findMany({
+            where: {
+                id: { in: boothIds },
+                assignment: { isNot: null },
+            },
+            select: {
+                id: true,
+                boothNumber: true,
+            },
+        });
+
+        if (boothsWithAssignments.length > 0) {
+            const boothNumbers = boothsWithAssignments.map(b => b.boothNumber).join(', ');
+            throw new BadRequestException(
+                `ไม่สามารถปิดการใช้งาน booth ที่มีการ assign แล้วได้: ${boothNumbers}`
+            );
+        }
+
+        // ปิดการใช้งาน booth (soft delete) โดยเซ็ต isActive = false
+        const result = await this.prisma.booth.updateMany({
+            where: {
+                id: { in: boothIds },
+                isAssigned: false,
+            },
+            data: {
+                isActive: false,
+            },
+        });
+
+        return {
+            message: `ปิดการใช้งาน booth สำเร็จ ${result.count} รายการ`,
+            disabled: result.count,
+        };
+    }
+
+    /**
+     * เปิดการใช้งาน booth หลายอันพร้อมกัน (Enable)
+     */
+    async bulkEnableBooths(boothIds: number[]) {
+        const result = await this.prisma.booth.updateMany({
+            where: {
+                id: { in: boothIds },
+            },
+            data: {
+                isActive: true,
+            },
+        });
+
+        return {
+            message: `เปิดการใช้งาน booth สำเร็จ ${result.count} รายการ`,
+            enabled: result.count,
+        };
+    }
+
+    /**
      * อัปเดตลำดับ booth (assignOrder) หลายตัวพร้อมกัน
      */
     async updateBoothOrder(booths: Array<{ id: number; assignOrder: number }>) {
@@ -653,8 +713,8 @@ export class BoothService {
         const stats: BoothStatsDto[] = [];
 
         for (const zone of zones) {
-            const total = await this.prisma.booth.count({ where: { zone } });
-            const assigned = await this.prisma.booth.count({ where: { zone, isAssigned: true } });
+            const total = await this.prisma.booth.count({ where: { zone, isActive: true } });
+            const assigned = await this.prisma.booth.count({ where: { zone, isAssigned: true, isActive: true } });
             const available = total - assigned;
 
             const pending = await this.prisma.boothAssignment.count({
@@ -683,6 +743,7 @@ export class BoothService {
                 where: {
                     zone: BoothZone.UNDEFINED,
                     isAssigned: false,
+                    isActive: true,
                 },
             });
 

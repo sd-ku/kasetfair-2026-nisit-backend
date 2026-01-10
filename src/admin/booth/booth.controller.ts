@@ -8,6 +8,7 @@ import {
     Post,
     Put,
     Query,
+    UseGuards,
 } from '@nestjs/common';
 import { BoothService } from './booth.service';
 import {
@@ -21,8 +22,11 @@ import {
     BatchAssignBoothDto,
 } from './dto/booth.dto';
 import { BoothZone, BoothAssignmentStatus } from '@prisma/client';
+import { JwtAuthGuard } from '../../auth/jwt.guard';
+import { AdminGuard } from '../admin.guard';
 
 @Controller('api/admin/booth')
+@UseGuards(JwtAuthGuard, AdminGuard)
 export class BoothController {
     constructor(private readonly boothService: BoothService) { }
 
@@ -96,6 +100,26 @@ export class BoothController {
     @Put('update-order')
     updateBoothOrder(@Body('booths') booths: Array<{ id: number; assignOrder: number }>) {
         return this.boothService.updateBoothOrder(booths);
+    }
+
+    /**
+     * ปิดการใช้งาน booth หลายอันพร้อมกัน (Soft Delete / Disable)
+     * PUT /api/admin/booth/bulk-disable
+     * Body: { boothIds: [1, 2, 3, 4, 5] }
+     */
+    @Put('bulk-disable')
+    bulkDisableBooths(@Body('boothIds') boothIds: number[]) {
+        return this.boothService.bulkDisableBooths(boothIds);
+    }
+
+    /**
+     * เปิดการใช้งาน booth หลายอันพร้อมกัน (Enable)
+     * PUT /api/admin/booth/bulk-enable
+     * Body: { boothIds: [1, 2, 3, 4, 5] }
+     */
+    @Put('bulk-enable')
+    bulkEnableBooths(@Body('boothIds') boothIds: number[]) {
+        return this.boothService.bulkEnableBooths(boothIds);
     }
 
     // ----- Stats -----
