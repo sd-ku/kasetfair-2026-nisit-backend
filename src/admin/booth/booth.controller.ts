@@ -20,6 +20,7 @@ import {
     ForfeitBoothAssignmentDto,
     ManualAssignBoothDto,
     BatchAssignBoothDto,
+    SpecificBoothAssignmentDto,
 } from './dto/booth.dto';
 import { BoothZone, BoothAssignmentStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../auth/jwt.guard';
@@ -90,6 +91,15 @@ export class BoothController {
     @Delete('all/reset')
     deleteAllBooths() {
         return this.boothService.deleteAllBooths();
+    }
+
+    /**
+     * Sync isAssigned flag กับ assignment จริง
+     * POST /api/admin/booth/sync-flags
+     */
+    @Post('sync-flags')
+    syncBoothAssignedFlags() {
+        return this.boothService.syncBoothAssignedFlags();
     }
 
     /**
@@ -241,6 +251,16 @@ export class BoothController {
     @Post('assignments/batch')
     batchAssignBooths(@Body() dto: BatchAssignBoothDto) {
         return this.boothService.batchAssignBooths(dto.storeIds, dto.note);
+    }
+
+    /**
+     * Assign booth เฉพาะเจาะจงให้ร้าน
+     * POST /api/admin/booth/assignments/specific
+     * Body: { storeId: 123, boothNumber: "M55", note?: "Specific assignment" }
+     */
+    @Post('assignments/specific')
+    assignSpecificBooth(@Body() dto: SpecificBoothAssignmentDto) {
+        return this.boothService.assignSpecificBooth(dto.storeId, dto.boothNumber, dto.note);
     }
 
     /**

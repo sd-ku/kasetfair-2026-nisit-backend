@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { BoothZone, BoothAssignmentStatus, GoodsType } from '@prisma/client';
 import {
@@ -186,13 +186,16 @@ export class BoothService {
      * ดึง booth ทั้งหมด
      */
     async findAllBooths(zone?: BoothZone, isAssigned?: boolean) {
-        return this.prisma.booth.findMany({
+        const booths = await this.prisma.booth.findMany({
             where: {
                 ...(zone && { zone }),
                 ...(isAssigned !== undefined && { isAssigned }),
             },
             include: {
-                assignment: {
+                assignments: {
+                    where: {
+                        status: { in: [BoothAssignmentStatus.PENDING, BoothAssignmentStatus.CONFIRMED] }
+                    },
                     include: {
                         store: {
                             select: {
@@ -206,6 +209,23 @@ export class BoothService {
             },
             orderBy: { assignOrder: 'asc' },
         });
+
+        return booths.map((booth: any) => {
+            if (booth.assignments.length > 1) {
+                throw new InternalServerErrorException(
+                    `Data Inconsistency: Booth ${booth.boothNumber} (ID: ${booth.id}) has multiple active assignments!`
+                );
+            }
+
+            const assignment = booth.assignments[0] || null;
+
+            // แปลงจาก array assignments เป็น object assignment เดียว
+            const { assignments, ...boothData } = booth;
+            return {
+                ...boothData,
+                assignment,
+            };
+        });
     }
 
     /**
@@ -214,14 +234,18 @@ export class BoothService {
     async deleteBooth(id: number) {
         const booth = await this.prisma.booth.findUnique({
             where: { id },
-            include: { assignment: true },
+            include: {
+                assignments: {
+                    where: { status: { in: [BoothAssignmentStatus.PENDING, BoothAssignmentStatus.CONFIRMED] } }
+                }
+            },
         });
 
         if (!booth) {
             throw new NotFoundException('ไม่พบ booth');
         }
 
-        if (booth.assignment) {
+        if ((booth as any).assignments.length > 0) {
             throw new BadRequestException('ไม่สามารถลบ booth ที่มีการ assign แล้วได้');
         }
 
@@ -244,6 +268,56 @@ export class BoothService {
     }
 
     /**
+     * Sync isAssigned flag กับ assignment จริง
+     * ใช้แก้ไขปัญหา data inconsistency
+     */
+    async syncBoothAssignedFlags() {
+        // หา booth ที่มี assignment active แต่ isAssigned = false
+        const boothsWithAssignment = await this.prisma.booth.findMany({
+            where: {
+                assignments: {
+                    some: { status: { in: [BoothAssignmentStatus.PENDING, BoothAssignmentStatus.CONFIRMED] } }
+                },
+                isAssigned: false,
+            },
+        });
+
+        // หา booth ที่ไม่มี assignment active แต่ isAssigned = true
+        const boothsWithoutAssignment = await this.prisma.booth.findMany({
+            where: {
+                assignments: {
+                    none: { status: { in: [BoothAssignmentStatus.PENDING, BoothAssignmentStatus.CONFIRMED] } }
+                },
+                isAssigned: true,
+            },
+        });
+
+        // อัปเดต
+        await this.prisma.$transaction([
+            // Set isAssigned = true สำหรับ booth ที่มี assignment
+            ...boothsWithAssignment.map(booth =>
+                this.prisma.booth.update({
+                    where: { id: booth.id },
+                    data: { isAssigned: true },
+                })
+            ),
+            // Set isAssigned = false สำหรับ booth ที่ไม่มี assignment
+            ...boothsWithoutAssignment.map(booth =>
+                this.prisma.booth.update({
+                    where: { id: booth.id },
+                    data: { isAssigned: false },
+                })
+            ),
+        ]);
+
+        return {
+            message: 'Sync สำเร็จ',
+            fixedWithAssignment: boothsWithAssignment.length,
+            fixedWithoutAssignment: boothsWithoutAssignment.length,
+        };
+    }
+
+    /**
      * ปิดการใช้งาน booth หลายอันพร้อมกัน (Soft Delete / Disable)
      * จะปิดได้เฉพาะ booth ที่ยังไม่ได้ assign เท่านั้น
      */
@@ -252,7 +326,9 @@ export class BoothService {
         const boothsWithAssignments = await this.prisma.booth.findMany({
             where: {
                 id: { in: boothIds },
-                assignment: { isNot: null },
+                assignments: {
+                    some: { status: { in: [BoothAssignmentStatus.PENDING, BoothAssignmentStatus.CONFIRMED] } }
+                }
             },
             select: {
                 id: true,
@@ -335,10 +411,15 @@ export class BoothService {
 
         // ค้นหา booth ใน zone ที่กำหนด หรือ UNDEFINED
         // โดยเรียงตาม assignOrder ตามทิศทางของ zone นั้น
+        // ตรวจสอบว่าไม่มี assignment ที่ Active อยู่ (PENDING/CONFIRMED)
+        // FORFEITED ไม่นับ (ถือว่าว่าง)
         const nextBooth = await this.prisma.booth.findFirst({
             where: {
                 zone: { in: [zone, BoothZone.UNDEFINED] },
-                isAssigned: false,
+                isActive: true,
+                assignments: {
+                    none: { status: { in: [BoothAssignmentStatus.PENDING, BoothAssignmentStatus.CONFIRMED] } }
+                }
             },
             orderBy: { assignOrder: config.direction },
         });
@@ -388,12 +469,14 @@ export class BoothService {
         const config = this.ZONE_EXPANSION_CONFIG[zone];
 
         // ดึง booth ว่างถัดไปตามทิศทางการขยายของ zone รวมถึง UNDEFINED zone
-        // เลือกเฉพาะ booth ที่เปิดใช้งาน (isActive: true)
+        // ตรวจสอบว่าไม่มี assignment จริงๆ แทนที่จะดู isAssigned flag
         const nextBooth = await this.prisma.booth.findFirst({
             where: {
                 zone: { in: [zone, BoothZone.UNDEFINED] },
-                isAssigned: false,
                 isActive: true, // เลือกเฉพาะ booth ที่เปิดใช้งาน
+                assignments: {
+                    none: { status: { in: [BoothAssignmentStatus.PENDING, BoothAssignmentStatus.CONFIRMED] } }
+                }
             },
             orderBy: { assignOrder: config.direction },
         });
@@ -701,6 +784,136 @@ export class BoothService {
             success: results.success,
             failed: results.failed,
             note: note || 'Batch assignment by admin',
+        };
+    }
+
+    /**
+     * Assign booth เฉพาะเจาะจงให้ร้าน
+     * ใช้สำหรับกรณี admin ต้องการระบุหมายเลข booth ที่ต้องการให้ร้าน
+     */
+    async assignSpecificBooth(storeId: number, boothNumber: string, note?: string) {
+        // ตรวจสอบว่าร้านนี้มี booth แล้วหรือยัง
+        const store = await this.prisma.store.findUnique({
+            where: { id: storeId },
+            select: {
+                id: true,
+                storeName: true,
+                goodType: true,
+                boothNumber: true,
+            },
+        });
+
+        if (!store) {
+            throw new NotFoundException('ไม่พบร้าน');
+        }
+
+        if (!store.goodType) {
+            throw new BadRequestException('ร้านนี้ยังไม่ได้ระบุประเภทสินค้า (Food/NonFood)');
+        }
+
+        // ค้นหา active assignment ปัจจุบันของร้าน (ถ้ามี)
+        const currentAssignment = await this.prisma.boothAssignment.findFirst({
+            where: {
+                storeId: storeId,
+                status: { in: [BoothAssignmentStatus.PENDING, BoothAssignmentStatus.CONFIRMED] }
+            },
+            include: { booth: true }
+        });
+
+        // ค้นหา booth ใหม่ที่ระบุ พร้อมตรวจสอบ assignment
+        const newBooth = await this.prisma.booth.findUnique({
+            where: { boothNumber },
+            include: { assignments: true },
+        });
+
+        if (!newBooth) {
+            throw new NotFoundException(`ไม่พบ booth ใหม่หมายเลข "${boothNumber}"`);
+        }
+
+        // ตรวจสอบว่า booth ใหม่ว่างหรือไม่
+        const activeAssignmentInNewBooth = (newBooth as any).assignments.find((a: any) =>
+            a.status === BoothAssignmentStatus.PENDING || a.status === BoothAssignmentStatus.CONFIRMED
+        );
+
+        if (activeAssignmentInNewBooth) {
+            throw new BadRequestException(`Booth ใหม่ "${boothNumber}" ถูก assign ไปแล้ว`);
+        }
+
+        if (!newBooth.isActive) {
+            throw new BadRequestException(`Booth ใหม่ "${boothNumber}" ถูกปิดการใช้งาน`);
+        }
+
+        // ตรวจสอบว่า zone ของ booth ใหม่ตรงกับ goodType ของร้านหรือไม่
+        const zone = this.goodsTypeToZone(store.goodType);
+        if (newBooth.zone !== zone && newBooth.zone !== BoothZone.UNDEFINED) {
+            throw new BadRequestException(
+                `Booth "${boothNumber}" อยู่ใน zone ${newBooth.zone} แต่ร้านนี้เป็นประเภท ${store.goodType} (zone ${zone})`
+            );
+        }
+
+        // ดึงลำดับ draw ถัดไป
+        const maxDrawOrder = await this.prisma.boothAssignment.aggregate({
+            _max: { drawOrder: true },
+        });
+
+        const drawOrder = (maxDrawOrder._max.drawOrder || 0) + 1;
+
+        // Transaction: ย้าย booth (จัดการของเก่า + สร้างของใหม่)
+        const assignment = await this.prisma.$transaction(async (tx) => {
+            // 1. ถ้ามี assignment เก่า ให้ยกเลิกและคืน booth เก่า
+            if (currentAssignment) {
+                // Update assignment เก่าเป็น FORFEITED (เปลี่ยน booth)
+                await tx.boothAssignment.update({
+                    where: { id: currentAssignment.id },
+                    data: {
+                        status: BoothAssignmentStatus.FORFEITED,
+                        forfeitReason: `Admin re-assigned to new booth ${boothNumber}`,
+                        forfeitedAt: new Date(),
+                    }
+                });
+
+                // Update booth เก่าให้ว่าง (isAssigned = false)
+                await tx.booth.update({
+                    where: { id: currentAssignment.boothId },
+                    data: { isAssigned: false }
+                });
+            }
+
+            // 2. สร้าง assignment ใหม่
+            const newAssignment = await tx.boothAssignment.create({
+                data: {
+                    boothId: newBooth.id,
+                    storeId: store.id,
+                    drawOrder,
+                    status: BoothAssignmentStatus.PENDING,
+                },
+                include: {
+                    booth: true,
+                    store: {
+                        select: {
+                            id: true,
+                            storeName: true,
+                            storeAdminNisitId: true,
+                        },
+                    },
+                },
+            });
+
+            // 3. Update booth ใหม่ให้ไม่ว่าง (isAssigned = true)
+            await tx.booth.update({
+                where: { id: newBooth.id },
+                data: {
+                    isAssigned: true,
+                    zone: zone // อัปเดต zone ให้ตรงกับร้าน
+                },
+            });
+
+            return newAssignment;
+        });
+
+        return {
+            ...assignment,
+            note: note || 'Specific booth assignment by admin',
         };
     }
 

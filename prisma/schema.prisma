@@ -420,7 +420,7 @@ model Booth {
   isActive      Boolean    @default(true)  // false = ปิดการใช้งาน (soft delete)
   
   // Relation
-  assignment    BoothAssignment?
+  assignments    BoothAssignment[]
   
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -433,7 +433,7 @@ model Booth {
 model BoothAssignment {
   id            Int                     @id @default(autoincrement())
   
-  boothId       Int                     @unique
+  boothId       Int
   booth         Booth                   @relation(fields: [boothId], references: [id])
   
   storeId       Int

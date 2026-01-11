@@ -82,6 +82,18 @@ export class BatchAssignBoothDto {
     note?: string;
 }
 
+export class SpecificBoothAssignmentDto {
+    @IsInt()
+    storeId: number;
+
+    @IsString()
+    boothNumber: string; // เช่น "M1", "M55"
+
+    @IsString()
+    @IsOptional()
+    note?: string;
+}
+
 
 // ----- Verify Assignment DTO -----
 
