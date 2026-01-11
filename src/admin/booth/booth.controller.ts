@@ -264,6 +264,15 @@ export class BoothController {
     }
 
     /**
+     * Recover และ assign booth ให้ร้านที่ถูกสุ่มไปแล้วแต่ยังไม่มี booth
+     * POST /api/admin/booth/assignments/recover-drawn
+     */
+    @Post('assignments/recover-drawn')
+    recoverDrawnStoresWithoutBooth() {
+        return this.boothService.recoverDrawnStoresWithoutBooth();
+    }
+
+    /**
      * ค้นหาร้านจาก nisit barcode
      * POST /api/admin/booth/lookup-store
      * Body: { barcode: "20065105035316" }

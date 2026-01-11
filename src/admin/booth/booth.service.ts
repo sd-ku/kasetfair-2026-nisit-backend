@@ -1063,6 +1063,117 @@ export class BoothService {
     }
 
     /**
+     * Recover และ assign booth ให้ร้านที่ถูกสุ่มไปแล้วแต่ยังไม่มี booth
+     * ใช้สำหรับกรณีที่ booth assignment ล้มเหลวตอนสุ่ม
+     */
+    async recoverDrawnStoresWithoutBooth() {
+        // ค้นหา lucky draw entries ที่ถูกสุ่มไปแล้ว (isDrawn = true)
+        // แต่ยังไม่มี booth assignment
+        const drawnEntriesWithoutBooth = await this.prisma.luckyDrawEntry.findMany({
+            where: {
+                isDrawn: true,
+                boothAssignment: null, // ยังไม่มี assignment
+            },
+            include: {
+                // ไม่มี direct relation จาก LuckyDrawEntry ไป Store
+                // ต้องใช้ storeId ที่เก็บไว้ใน entry
+            },
+        });
+
+        if (drawnEntriesWithoutBooth.length === 0) {
+            return {
+                message: 'ไม่พบร้านที่ถูกสุ่มแล้วแต่ยังไม่มี booth',
+                recovered: 0,
+                total: 0,
+                success: [],
+                failed: [],
+            };
+        }
+
+        const results = {
+            success: [] as any[],
+            failed: [] as { storeId: number; storeName: string; reason: string }[],
+        };
+
+        // วนลูปแต่ละ entry และพยายาม assign booth
+        for (const entry of drawnEntriesWithoutBooth) {
+            try {
+                // ดึงข้อมูลร้าน
+                const store = await this.prisma.store.findUnique({
+                    where: { id: entry.storeId },
+                    select: {
+                        id: true,
+                        storeName: true,
+                        goodType: true,
+                        boothNumber: true,
+                    },
+                });
+
+                if (!store) {
+                    results.failed.push({
+                        storeId: entry.storeId,
+                        storeName: entry.storeName,
+                        reason: 'ไม่พบร้านในระบบ',
+                    });
+                    continue;
+                }
+
+                // ตรวจสอบว่าร้านมี booth แล้วหรือยัง
+                if (store.boothNumber) {
+                    results.failed.push({
+                        storeId: store.id,
+                        storeName: store.storeName,
+                        reason: `ร้านมี booth ${store.boothNumber} แล้ว`,
+                    });
+                    continue;
+                }
+
+                // ตรวจสอบว่าร้านมี goodType หรือยัง
+                if (!store.goodType) {
+                    results.failed.push({
+                        storeId: store.id,
+                        storeName: store.storeName,
+                        reason: 'ร้านยังไม่ได้ระบุประเภทสินค้า (Food/NonFood)',
+                    });
+                    continue;
+                }
+
+                // สร้าง assignment ใหม่
+                const assignment = await this.createAssignment({
+                    storeId: store.id,
+                    luckyDrawEntryId: entry.id,
+                });
+
+                results.success.push({
+                    storeId: store.id,
+                    storeName: store.storeName,
+                    booth: assignment.booth,
+                    assignment: {
+                        id: assignment.id,
+                        drawOrder: assignment.drawOrder,
+                        status: assignment.status,
+                    },
+                });
+            } catch (error: any) {
+                results.failed.push({
+                    storeId: entry.storeId,
+                    storeName: entry.storeName,
+                    reason: error.message || 'Unknown error',
+                });
+            }
+        }
+
+        return {
+            message: `Recover สำเร็จ ${results.success.length} จาก ${drawnEntriesWithoutBooth.length} ร้าน`,
+            total: drawnEntriesWithoutBooth.length,
+            recovered: results.success.length,
+            failedCount: results.failed.length,
+            success: results.success,
+            failed: results.failed,
+        };
+    }
+
+    /**
      * ค้นหาร้านจาก nisitId (barcode)
      * ใช้สำหรับ admin ตรวจสอบว่านิสิตคนนี้อยู่ร้านไหน
      */
