@@ -95,11 +95,28 @@ export class LuckyDrawService {
     /**
      * ดึง entries ทั้งหมดที่ยังไม่ถูกสุ่ม
      * ใช้สำหรับกรณี refresh หน้า
+     * @param type - กรองตาม StoreType (Nisit หรือ Club) - optional
      */
-    async getActiveEntries() {
+    async getActiveEntries(type?: 'Nisit' | 'Club') {
+        // ถ้ามีการระบุ type ให้ query stores ที่ตรงตาม type ก่อน
+        let storeIds: number[] | undefined;
+
+        if (type) {
+            const stores = await this.prisma.store.findMany({
+                where: {
+                    type: type,
+                },
+                select: {
+                    id: true,
+                },
+            });
+            storeIds = stores.map(store => store.id);
+        }
+
         const entries = await this.prisma.luckyDrawEntry.findMany({
             where: {
                 isDrawn: false,
+                ...(storeIds && { storeId: { in: storeIds } }),
             },
             orderBy: {
                 storeId: 'asc',

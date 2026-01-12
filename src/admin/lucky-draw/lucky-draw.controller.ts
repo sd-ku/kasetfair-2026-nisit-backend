@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Post, Patch, HttpException, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, HttpException, HttpStatus, Query } from '@nestjs/common';
 import { LuckyDrawService } from './lucky-draw.service';
 import { CreateLuckyDrawDto } from './dto/create-lucky-draw.dto';
 import { GenerateWheelDto } from './dto/generate-wheel.dto';
+import { GetActiveEntriesDto } from './dto/get-active-entries.dto';
 import { BoothService } from '../booth/booth.service';
 
 @Controller('api/admin/lucky-draw')
@@ -64,8 +65,8 @@ export class LuckyDrawController {
     }
 
     @Get('active-entries')
-    getActiveEntries() {
-        return this.luckyDrawService.getActiveEntries();
+    getActiveEntries(@Query() query: GetActiveEntriesDto) {
+        return this.luckyDrawService.getActiveEntries(query.type);
     }
 
     @Post('reset')
