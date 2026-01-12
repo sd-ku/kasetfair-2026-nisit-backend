@@ -590,16 +590,19 @@ export class BoothService {
                         select: {
                             id: true,
                             storeName: true,
+                            boothNumber: true,
                         },
                     },
                 },
             });
 
-            // อัพเดท Store.boothNumber
-            await tx.store.update({
-                where: { id: assignment.storeId },
-                data: { boothNumber: assignment.booth.boothNumber },
-            });
+            // อัพเดท Store.boothNumber เฉพาะเมื่อค่าเปลี่ยน (เพื่อหลีกเลี่ยง unique constraint error)
+            if (updatedAssignment.store.boothNumber !== assignment.booth.boothNumber) {
+                await tx.store.update({
+                    where: { id: assignment.storeId },
+                    data: { boothNumber: assignment.booth.boothNumber },
+                });
+            }
 
             return updatedAssignment;
         });
